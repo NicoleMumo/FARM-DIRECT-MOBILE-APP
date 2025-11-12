@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "444157539579",
+    "project_id": "farmdirect-bfdf9",
+    "storage_bucket": "farmdirect-bfdf9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:444157539579:android:4fd2ae59d6af1e0feaac5e",
+        "android_client_info": {
+          "package_name": "com.example.farmdirect"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCQ0XccGNDe0q3sZD-pTSFwbKJhmyUFqcs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

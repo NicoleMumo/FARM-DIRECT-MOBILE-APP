@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- App theme based on Material Components (compatible with AppCompatActivity) -->
+    <style name="Theme.FarmDirect" parent="Theme.MaterialComponents.Light.NoActionBar">
+        <!-- Customize your colors here -->
+        <item name="colorPrimary">@color/green</item>
+        <item name="colorPrimaryDark">@color/dark_green</item>
+        <item name="colorAccent">@color/light_green</item>
+    </style>
+
+</resources>
