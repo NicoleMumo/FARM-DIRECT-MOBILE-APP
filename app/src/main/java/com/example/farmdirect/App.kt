@@ -1,6 +1,7 @@
 package com.example.farmdirect
 
 import android.app.Application
+import android.util.Log
 import com.example.farmdirect.BuildConfig // CORRECT: Capital 'B'
 import com.google.firebase.FirebaseApp
 import com.google.firebase.appcheck.FirebaseAppCheck
@@ -20,9 +21,12 @@ class MyApplication : Application() {
         // Check if the app is running in debug mode
         if (BuildConfig.DEBUG) { // CORRECT: Capital 'B'
             // If it's a debug build, install the Debug provider
-            firebaseAppCheck.installAppCheckProviderFactory(
-                DebugAppCheckProviderFactory.getInstance()
-            )
+            val debugFactory = DebugAppCheckProviderFactory.getInstance()
+            firebaseAppCheck.installAppCheckProviderFactory(debugFactory)
+            
+            // Log the debug token for physical devices
+            // Check Logcat with filter "FirebaseAppCheck" to see the token
+            Log.d("FirebaseAppCheck", "Debug App Check enabled. Check Logcat for debug token.")
         } else {
             // If it's a release build, install the Play Integrity provider
             firebaseAppCheck.installAppCheckProviderFactory(

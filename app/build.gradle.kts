@@ -1,25 +1,27 @@
 plugins {
     id("com.android.application")
-    id("kotlin-android")
+    id("org.jetbrains.kotlin.android") version "2.0.21"
     id("com.google.gms.google-services")
+    alias(libs.plugins.kotlin.compose)
 }
 
 
 android {
     namespace = "com.example.farmdirect" // FIX: Added '='
-    compileSdk = 34                  // FIX: Added '='
+    compileSdk = 36                  // Updated to 36 to match dependency requirements
 
     defaultConfig {
         applicationId = "com.example.farmdirect" // Also ensure '=' is used here
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 36  // Updated to 36 to match compileSdk
         versionCode = 1
         versionName = "1.0"
 
-        // enable ViewBinding
+        // enable ViewBinding and Compose
         buildFeatures {
             viewBinding = true // FIX: Added '='
             buildConfig = true // FIX: Added '='
+            compose = true
         }
     }
 
@@ -36,6 +38,9 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+    
+    // With Kotlin 2.0+, Compose compiler is integrated into Kotlin
+    // No need for kotlinCompilerExtensionVersion
 }
 
 dependencies {
@@ -44,9 +49,6 @@ dependencies {
 
     // Add the dependency for Firebase Authentication
     implementation("com.google.firebase:firebase-auth")
-    implementation("com.google.firebase:firebase-firestore")
-
-    // You likely need these as well, based on your FirebaseUtils.kt file
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-storage")
 
@@ -58,6 +60,27 @@ dependencies {
 // **Add these for App Check**
     implementation("com.google.firebase:firebase-appcheck-playintegrity:19.0.1")
     implementation("com.google.firebase:firebase-appcheck-debug") // For testing on emulators/debug builds
+
+    // Compose dependencies
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.ui.graphics)
+    implementation(libs.androidx.compose.ui.tooling.preview)
+    implementation(libs.androidx.compose.material3)
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
+    implementation("androidx.navigation:navigation-compose:2.7.6")
+    
+    // Core KTX
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    
+    // RecyclerView (for traditional Android views)
+    implementation("androidx.recyclerview:recyclerview:1.3.2")
+    
+    // ConstraintLayout (for XML layouts)
+    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
 
 }
 
