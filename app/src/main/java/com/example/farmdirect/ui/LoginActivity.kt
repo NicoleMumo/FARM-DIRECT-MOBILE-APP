@@ -67,16 +67,16 @@ class LoginActivity : AppCompatActivity() {
                 // Navigate to the correct dashboard based on the role
                 when (role) {
                     "farmer" -> startActivity(Intent(this, FarmerDashboardActivity::class.java))
-                    "consumer" -> startActivity(Intent(this, CustomerDashboardActivity::class.java))
+                    "consumer" -> startActivity(Intent(this, ConsumerDashboardActivity::class.java))
                     "admin" -> startActivity(Intent(this, AdminDashboardActivity::class.java))
-                    else -> startActivity(Intent(this, CustomerDashboardActivity::class.java)) // Fallback
+                    else -> startActivity(Intent(this, ConsumerDashboardActivity::class.java)) // Fallback
                 }
                 finish() // Close the LoginActivity so the user can't go back to it
             }
             .addOnFailureListener {
                 // If reading from Firestore fails, fallback to the default dashboard
                 Toast.makeText(this, "Could not verify user role. Logging in as customer.", Toast.LENGTH_SHORT).show()
-                startActivity(Intent(this, CustomerDashboardActivity::class.java))
+                startActivity(Intent(this, ConsumerDashboardActivity::class.java))
                 finish()
             }
     }

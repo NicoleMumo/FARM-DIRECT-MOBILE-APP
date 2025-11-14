@@ -9,3 +9,4 @@ object FirebaseUtils {
     val firestore: FirebaseFirestore by lazy { FirebaseFirestore.getInstance() }
     val storage: FirebaseStorage by lazy { FirebaseStorage.getInstance() }
 }
+

@@ -43,7 +43,7 @@
             android:name=".ui.FarmerDashboardActivity"
             android:exported="false" />
         <activity
-            android:name=".ui.CustomerDashboardActivity"
+            android:name=".ui.ConsumerDashboardActivity"
             android:exported="false" />
         <activity
             android:name=".ui.AdminDashboardActivity"
