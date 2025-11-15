@@ -56,9 +56,9 @@ fun ConsumerHomeRoute(
             when (selectedBottomNavItem) {
                 "Home" -> {
                     val uiState by homeViewModel.uiState.collectAsState()
-                    ConsumerHomeScreen(
-                        uiState = uiState,
-                        categories = getDefaultCategories(),
+    ConsumerHomeScreen(
+        uiState = uiState,
+        categories = getDefaultCategories(),
                         onSearchChanged = homeViewModel::onSearchChanged,
                         onCategoryClicked = homeViewModel::onCategorySelected,
                         onAddToCart = { productId ->
@@ -92,11 +92,11 @@ fun ConsumerHomeScreen(
     onCategoryClicked: (String?) -> Unit,
     onAddToCart: (String) -> Unit
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF7F9FA))
-    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFFF7F9FA))
+        ) {
             // Top App Bar
             TopAppBar(
                 categories = categories,
@@ -167,10 +167,10 @@ fun ConsumerHomeScreen(
                         products = uiState.filteredProducts,
                         onAddToCart = onAddToCart
                     )
-                }
             }
         }
     }
+}
 
 @Composable
 fun TopAppBar(

@@ -61,23 +61,41 @@ class LoginActivity : AppCompatActivity() {
     private fun checkUserRoleAndNavigate(uid: String) {
         FirebaseUtils.firestore.collection("users").document(uid).get()
             .addOnSuccessListener { documentSnapshot ->
-                // Default to "consumer" if the role is not found
-                val role = documentSnapshot.getString("role") ?: "consumer"
-
-                // Navigate to the correct dashboard based on the role
-                when (role) {
-                    "farmer" -> startActivity(Intent(this, FarmerDashboardActivity::class.java))
-                    "consumer" -> startActivity(Intent(this, ConsumerDashboardActivity::class.java))
-                    "admin" -> startActivity(Intent(this, AdminDashboardActivity::class.java))
-                    else -> startActivity(Intent(this, ConsumerDashboardActivity::class.java)) // Fallback
+                if (documentSnapshot.exists()) {
+                    // Get role from document
+                    val role = documentSnapshot.getString("role") ?: "consumer"
+                    
+                    // Log for debugging
+                    android.util.Log.d("LoginActivity", "User role: $role, UID: $uid")
+                    
+                    // Navigate to the correct dashboard based on the role
+                    when (role.lowercase()) {
+                        "farmer" -> {
+                            startActivity(Intent(this, FarmerDashboardActivity::class.java))
+                        }
+                        "consumer" -> {
+                            startActivity(Intent(this, ConsumerDashboardActivity::class.java))
+                        }
+                        "admin" -> {
+                            startActivity(Intent(this, AdminDashboardActivity::class.java))
+                        }
+                        else -> {
+                            Toast.makeText(this, "Unknown role: $role. Logging in as consumer.", Toast.LENGTH_SHORT).show()
+                            startActivity(Intent(this, ConsumerDashboardActivity::class.java))
+                        }
+                    }
+                } else {
+                    // Document doesn't exist - create it with default role
+                    android.util.Log.w("LoginActivity", "User document not found for UID: $uid")
+                    Toast.makeText(this, "User profile not found. Please register again.", Toast.LENGTH_LONG).show()
+                    FirebaseUtils.auth.signOut()
                 }
                 finish() // Close the LoginActivity so the user can't go back to it
             }
-            .addOnFailureListener {
-                // If reading from Firestore fails, fallback to the default dashboard
-                Toast.makeText(this, "Could not verify user role. Logging in as customer.", Toast.LENGTH_SHORT).show()
-                startActivity(Intent(this, ConsumerDashboardActivity::class.java))
-                finish()
+            .addOnFailureListener { exception ->
+                // If reading from Firestore fails, show error and don't navigate
+                android.util.Log.e("LoginActivity", "Error reading user role: ${exception.message}", exception)
+                Toast.makeText(this, "Error verifying user role: ${exception.localizedMessage}", Toast.LENGTH_LONG).show()
             }
     }
 }
