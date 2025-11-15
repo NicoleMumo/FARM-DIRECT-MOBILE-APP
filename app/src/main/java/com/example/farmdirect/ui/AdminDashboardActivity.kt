@@ -1,48 +1,23 @@
 package com.example.farmdirect.ui
 
 import android.os.Bundle
-import android.util.Log
-import androidx.appcompat.app.AppCompatActivity
-import androidx.recyclerview.widget.LinearLayoutManager
-import com.example.farmdirect.adapter.UserAdapter
-import com.example.farmdirect.databinding.ActivityAdminDashboardBinding
-import com.example.farmdirect.models.User
-import com.example.farmdirect.utils.FirebaseUtils
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import com.example.farmdirect.ui.admin.AdminDashboardRoute
+import com.example.farmdirect.ui.theme.FarmDirectTheme
 
-class AdminDashboardActivity : AppCompatActivity() {
-    private lateinit var binding: ActivityAdminDashboardBinding
-    private lateinit var userAdapter: UserAdapter
-    private val userList = mutableListOf<User>()
-
+class AdminDashboardActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityAdminDashboardBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-
-        setupRecyclerView()
-        fetchUsers()
-    }
-
-    private fun setupRecyclerView() {
-        userAdapter = UserAdapter(userList)
-        binding.usersRecyclerView.apply {
-            layoutManager = LinearLayoutManager(this@AdminDashboardActivity)
-            adapter = userAdapter
+        
+        android.util.Log.d("AdminDashboardActivity", "onCreate started")
+        
+        setContent {
+            FarmDirectTheme {
+                AdminDashboardRoute()
+            }
         }
-    }
-
-    private fun fetchUsers() {
-        FirebaseUtils.firestore.collection("users").get()
-            .addOnSuccessListener { result ->
-                userList.clear()
-                for (document in result) {
-                    val user = document.toObject(User::class.java)
-                    userList.add(user)
-                }
-                userAdapter.notifyDataSetChanged()
-            }
-            .addOnFailureListener { exception ->
-                Log.w("AdminDashboardActivity", "Error getting documents: ", exception)
-            }
+        
+        android.util.Log.d("AdminDashboardActivity", "setContent completed successfully")
     }
 }
