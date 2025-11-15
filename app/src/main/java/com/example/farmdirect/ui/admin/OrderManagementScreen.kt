@@ -51,48 +51,9 @@ fun OrderManagementScreen(
             .background(Color(0xFFF7F9FA))
     ) {
         // Header
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = Color(0xFF2E7D32),
-            shadowElevation = 4.dp
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Order Management",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-                Box {
-                    Icon(
-                        imageVector = Icons.Default.Notifications,
-                        contentDescription = "Notifications",
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Box(
-                        modifier = Modifier
-                            .size(16.dp)
-                            .background(Color(0xFFFF9800), androidx.compose.foundation.shape.CircleShape)
-                            .align(Alignment.TopEnd),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "3",
-                            color = Color.White,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-        }
+        AdminHeader(
+            title = "Order Management"
+        )
         
         LazyColumn(
             modifier = Modifier.fillMaxSize(),

@@ -69,8 +69,7 @@ fun UserManagementScreen(
     ) {
         // Header
         AdminHeader(
-            title = "FarmDirect",
-            notificationCount = 3
+            title = "FarmDirect"
         )
         
         LazyColumn(

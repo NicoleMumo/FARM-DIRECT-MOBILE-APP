@@ -88,8 +88,7 @@ fun AdminDashboardScreen(
     ) {
         // Header
         AdminHeader(
-            title = "FarmDirect",
-            notificationCount = 3
+            title = "FarmDirect"
         )
         
         LazyColumn(
@@ -144,8 +143,7 @@ fun AdminDashboardScreen(
 
 @Composable
 fun AdminHeader(
-    title: String,
-    notificationCount: Int
+    title: String
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -181,41 +179,12 @@ fun AdminHeader(
                 )
             }
             
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box {
-                    Icon(
-                        imageVector = Icons.Default.Notifications,
-                        contentDescription = "Notifications",
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    if (notificationCount > 0) {
-                        Box(
-                            modifier = Modifier
-                                .size(16.dp)
-                                .background(Color.Red, CircleShape)
-                                .align(Alignment.TopEnd),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = notificationCount.toString(),
-                                color = Color.White,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = "Profile",
-                    tint = Color.White,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
+            Icon(
+                imageVector = Icons.Default.Person,
+                contentDescription = "Profile",
+                tint = Color.White,
+                modifier = Modifier.size(24.dp)
+            )
         }
     }
 }

@@ -25,14 +25,15 @@ import com.example.farmdirect.R
 
 @Composable
 fun OrdersRoute(
-    viewModel: OrdersViewModel = viewModel()
+    viewModel: OrdersViewModel = viewModel(),
+    onViewDetails: (String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     
     OrdersScreen(
         uiState = uiState,
         onFilterSelected = viewModel::selectFilter,
-        onViewDetails = { /* TODO: Navigate to order details */ },
+        onViewDetails = onViewDetails,
         onTrackOrder = { /* TODO: Navigate to tracking */ },
         onReorder = viewModel::reorder
     )
