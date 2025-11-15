@@ -73,6 +73,37 @@ class WishlistViewModel : ViewModel() {
         }
     }
     
+    fun addToWishlist(productId: String) {
+        viewModelScope.launch {
+            try {
+                // Check if already in wishlist
+                val existing = FirebaseUtils.firestore
+                    .collection("wishlist")
+                    .whereEqualTo("userId", userId)
+                    .whereEqualTo("productId", productId)
+                    .get()
+                    .await()
+                
+                if (existing.documents.isEmpty()) {
+                    val wishlistItem = hashMapOf(
+                        "userId" to userId,
+                        "productId" to productId,
+                        "createdAt" to com.google.firebase.Timestamp.now()
+                    )
+                    FirebaseUtils.firestore
+                        .collection("wishlist")
+                        .add(wishlistItem)
+                        .await()
+                    fetchWishlist()
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = e.message ?: "Failed to add to wishlist"
+                )
+            }
+        }
+    }
+    
     fun removeFromWishlist(itemId: String) {
         viewModelScope.launch {
             try {

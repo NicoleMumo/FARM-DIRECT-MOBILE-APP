@@ -14,6 +14,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -33,24 +36,75 @@ fun ProfileRoute(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    var currentScreen by remember { mutableStateOf<ProfileScreenType?>(null) }
     
-    ProfileScreen(
-        uiState = uiState,
-        onMenuItemClick = { menuItem ->
-            when (menuItem.id) {
-                "logout" -> {
-                    FirebaseUtils.auth.signOut()
-                    val intent = Intent(context, LoginActivity::class.java)
-                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                    context.startActivity(intent)
+    when (currentScreen) {
+        ProfileScreenType.MY_ACCOUNT -> {
+            MyAccountScreen(onBack = { currentScreen = null })
+        }
+        ProfileScreenType.SAVED_BENEFICIARY -> {
+            SavedBeneficiaryScreen(onBack = { currentScreen = null })
+        }
+        ProfileScreenType.SECURITY -> {
+            SecuritySettingsScreen(
+                onBack = { currentScreen = null },
+                onFaceIdToggle = { enabled ->
+                    viewModel.toggleFaceId(enabled)
+                },
+                onTwoFactorToggle = {
+                    viewModel.toggleTwoFactor()
                 }
-                else -> {
-                    // TODO: Handle other menu items
-                }
-            }
-        },
-        onEditProfile = { /* TODO: Navigate to edit profile */ }
-    )
+            )
+        }
+        ProfileScreenType.HELP -> {
+            HelpSupportScreen(onBack = { currentScreen = null })
+        }
+        ProfileScreenType.ABOUT -> {
+            AboutAppScreen(onBack = { currentScreen = null })
+        }
+        null -> {
+            ProfileScreen(
+                uiState = uiState,
+                onMenuItemClick = { menuItem ->
+                    when (menuItem.id) {
+                        "logout" -> {
+                            FirebaseUtils.auth.signOut()
+                            val intent = Intent(context, LoginActivity::class.java)
+                            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                            context.startActivity(intent)
+                        }
+                        "my_account" -> {
+                            currentScreen = ProfileScreenType.MY_ACCOUNT
+                        }
+                        "saved_beneficiary" -> {
+                            currentScreen = ProfileScreenType.SAVED_BENEFICIARY
+                        }
+                        "face_id", "two_factor" -> {
+                            currentScreen = ProfileScreenType.SECURITY
+                        }
+                        "help" -> {
+                            currentScreen = ProfileScreenType.HELP
+                        }
+                        "about" -> {
+                            currentScreen = ProfileScreenType.ABOUT
+                        }
+                        else -> {
+                            menuItem.onClick()
+                        }
+                    }
+                },
+                onEditProfile = { /* TODO: Navigate to edit profile */ }
+            )
+        }
+    }
+}
+
+enum class ProfileScreenType {
+    MY_ACCOUNT,
+    SAVED_BENEFICIARY,
+    SECURITY,
+    HELP,
+    ABOUT
 }
 
 @Composable

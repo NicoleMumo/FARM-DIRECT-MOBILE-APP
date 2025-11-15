@@ -25,7 +25,8 @@ import com.example.farmdirect.R
 
 @Composable
 fun WishlistRoute(
-    viewModel: WishlistViewModel = viewModel()
+    viewModel: WishlistViewModel = viewModel(),
+    onProductClick: (ProductUi) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     
@@ -33,7 +34,8 @@ fun WishlistRoute(
         uiState = uiState,
         onRemoveItem = viewModel::removeFromWishlist,
         onAddToCart = viewModel::addToCart,
-        onSearchChanged = viewModel::onSearchChanged
+        onSearchChanged = viewModel::onSearchChanged,
+        onProductClick = onProductClick
     )
 }
 
@@ -42,7 +44,8 @@ fun WishlistScreen(
     uiState: WishlistUiState,
     onRemoveItem: (String) -> Unit,
     onAddToCart: (String) -> Unit,
-    onSearchChanged: (String) -> Unit
+    onSearchChanged: (String) -> Unit,
+    onProductClick: (ProductUi) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -120,7 +123,19 @@ fun WishlistScreen(
                         WishlistItemCard(
                             item = item,
                             onRemove = { onRemoveItem(item.id) },
-                            onAddToCart = { onAddToCart(item.productId) }
+                            onAddToCart = { onAddToCart(item.productId) },
+                            onClick = {
+                                onProductClick(
+                                    ProductUi(
+                                        id = item.productId,
+                                        name = item.name,
+                                        price = item.price,
+                                        farmName = item.farmName,
+                                        category = item.category,
+                                        imageUrl = item.imageUrl
+                                    )
+                                )
+                            }
                         )
                     }
                 }
@@ -133,10 +148,13 @@ fun WishlistScreen(
 fun WishlistItemCard(
     item: WishlistItem,
     onRemove: () -> Unit,
-    onAddToCart: () -> Unit
+    onAddToCart: () -> Unit,
+    onClick: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)

@@ -128,5 +128,21 @@ class ProfileViewModel : ViewModel() {
             moreMenuItems = moreItems
         )
     }
+    
+    fun toggleFaceId(enabled: Boolean) {
+        val updatedItems = _uiState.value.accountMenuItems.map {
+            if (it.id == "face_id") {
+                it.copy(toggleState = enabled)
+            } else {
+                it
+            }
+        }
+        _uiState.value = _uiState.value.copy(accountMenuItems = updatedItems)
+    }
+    
+    fun toggleTwoFactor() {
+        // TODO: Implement two-factor authentication setup
+        android.util.Log.d("ProfileViewModel", "Two-factor authentication toggle clicked")
+    }
 }
 

@@ -57,58 +57,9 @@ fun ProductManagementScreen(
             .background(Color(0xFFF7F9FA))
     ) {
         // Header
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = Color(0xFF2E7D32),
-            shadowElevation = 4.dp
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Product Management",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Box {
-                        Icon(
-                            imageVector = Icons.Default.Notifications,
-                            contentDescription = "Notifications",
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Box(
-                            modifier = Modifier
-                                .size(16.dp)
-                                .background(Color(0xFFFFF9C4), androidx.compose.foundation.shape.CircleShape)
-                                .align(Alignment.TopEnd),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "3",
-                                color = Color.Black,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = "Profile",
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            }
-        }
+        AdminHeader(
+            title = "Product Management"
+        )
         
         LazyColumn(
             modifier = Modifier.fillMaxSize(),

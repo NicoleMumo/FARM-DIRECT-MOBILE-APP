@@ -150,7 +150,7 @@ class CartViewModel : ViewModel() {
         _uiState.value = _uiState.value.copy(paymentMethods = updatedMethods)
     }
     
-    fun addToCart(productId: String) {
+    fun addToCart(productId: String, quantity: Int = 1) {
         viewModelScope.launch {
             try {
                 // Check if item already exists in cart
@@ -168,14 +168,14 @@ class CartViewModel : ViewModel() {
                     FirebaseUtils.firestore
                         .collection("cart")
                         .document(docId)
-                        .update("quantity", currentQuantity + 1)
+                        .update("quantity", currentQuantity + quantity)
                         .await()
                 } else {
                     // Add new item
                     val cartItem = hashMapOf(
                         "userId" to userId,
                         "productId" to productId,
-                        "quantity" to 1
+                        "quantity" to quantity
                     )
                     FirebaseUtils.firestore
                         .collection("cart")

@@ -39,13 +39,17 @@ fun ConsumerHomeRoute(
     profileViewModel: ProfileViewModel = viewModel()
 ) {
     var selectedBottomNavItem by remember { mutableStateOf("Home") }
+    var selectedProduct by remember { mutableStateOf<ProductUi?>(null) }
+    var selectedOrder by remember { mutableStateOf<Order?>(null) }
     
     Scaffold(
         bottomBar = {
-            BottomNavigationBar(
-                selectedItem = selectedBottomNavItem,
-                onItemSelected = { selectedBottomNavItem = it }
-            )
+            if (selectedProduct == null && selectedOrder == null) {
+                BottomNavigationBar(
+                    selectedItem = selectedBottomNavItem,
+                    onItemSelected = { selectedBottomNavItem = it }
+                )
+            }
         }
     ) { paddingValues ->
         Box(
@@ -53,30 +57,75 @@ fun ConsumerHomeRoute(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            when (selectedBottomNavItem) {
-                "Home" -> {
-                    val uiState by homeViewModel.uiState.collectAsState()
-    ConsumerHomeScreen(
-        uiState = uiState,
-        categories = getDefaultCategories(),
-                        onSearchChanged = homeViewModel::onSearchChanged,
-                        onCategoryClicked = homeViewModel::onCategorySelected,
-                        onAddToCart = { productId ->
-                            // Add to cart logic
-                            cartViewModel.addToCart(productId)
+            when {
+                selectedProduct != null -> {
+                    val wishlistState by wishlistViewModel.uiState.collectAsState()
+                    val isInWishlist = wishlistState.items.any { it.productId == selectedProduct!!.id }
+                    ProductDetailsScreen(
+                        product = selectedProduct!!,
+                        onBack = { selectedProduct = null },
+                        onAddToCart = { productId, quantity ->
+                            cartViewModel.addToCart(productId, quantity)
+                        },
+                        onAddToWishlist = { productId ->
+                            wishlistViewModel.addToWishlist(productId)
+                        },
+                        onRemoveFromWishlist = { productId ->
+                            val wishlistItem = wishlistState.items.find { it.productId == productId }
+                            wishlistItem?.let { wishlistViewModel.removeFromWishlist(it.id) }
+                        },
+                        isInWishlist = isInWishlist
+                    )
+                }
+                selectedOrder != null -> {
+                    OrderDetailsScreen(
+                        order = selectedOrder!!,
+                        onBack = { selectedOrder = null },
+                        onTrackPackage = { /* TODO: Navigate to tracking */ },
+                        onReorder = {
+                            // Add order items to cart
+                            selectedOrder = null
                         }
                     )
                 }
-                "Wishlist" -> {
-                    WishlistRoute(viewModel = wishlistViewModel)
+                selectedBottomNavItem == "Home" -> {
+                    val uiState by homeViewModel.uiState.collectAsState()
+                    ConsumerHomeScreen(
+                        uiState = uiState,
+                        categories = getDefaultCategories(),
+                        onSearchChanged = homeViewModel::onSearchChanged,
+                        onCategoryClicked = homeViewModel::onCategorySelected,
+                        onAddToCart = { productId ->
+                            cartViewModel.addToCart(productId)
+                        },
+                        onProductClick = { product ->
+                            selectedProduct = product
+                        }
+                    )
                 }
-                "Cart" -> {
+                selectedBottomNavItem == "Wishlist" -> {
+                    WishlistRoute(
+                        viewModel = wishlistViewModel,
+                        onProductClick = { product ->
+                            selectedProduct = product
+                        }
+                    )
+                }
+                selectedBottomNavItem == "Cart" -> {
                     CartRoute(viewModel = cartViewModel)
                 }
-                "Orders" -> {
-                    OrdersRoute(viewModel = ordersViewModel)
+                selectedBottomNavItem == "Orders" -> {
+                    OrdersRoute(
+                        viewModel = ordersViewModel,
+                        onViewDetails = { orderId ->
+                            val order = ordersViewModel.uiState.value.filteredOrders.find { it.id == orderId }
+                            if (order != null) {
+                                selectedOrder = order
+                            }
+                        }
+                    )
                 }
-                "Profile" -> {
+                selectedBottomNavItem == "Profile" -> {
                     ProfileRoute(viewModel = profileViewModel)
                 }
             }
@@ -90,7 +139,8 @@ fun ConsumerHomeScreen(
     categories: List<CategoryUi>,
     onSearchChanged: (String) -> Unit,
     onCategoryClicked: (String?) -> Unit,
-    onAddToCart: (String) -> Unit
+    onAddToCart: (String) -> Unit,
+    onProductClick: (ProductUi) -> Unit
 ) {
         Column(
             modifier = Modifier
@@ -165,7 +215,8 @@ fun ConsumerHomeScreen(
                 } else {
                     ProductList(
                         products = uiState.filteredProducts,
-                        onAddToCart = onAddToCart
+                        onAddToCart = onAddToCart,
+                        onProductClick = onProductClick
                     )
             }
         }
@@ -207,24 +258,13 @@ fun TopAppBar(
                 )
             }
             
-            // Icons
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                IconButton(onClick = { /* TODO: Notifications */ }) {
-                    Icon(
-                        imageVector = Icons.Default.Notifications,
-                        contentDescription = "Notifications",
-                        tint = Color(0xFF2E7D32)
-                    )
-                }
-                IconButton(onClick = { /* TODO: Profile */ }) {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = "Profile",
-                        tint = Color(0xFF2E7D32)
-                    )
-                }
+            // Profile Icon
+            IconButton(onClick = { /* TODO: Profile */ }) {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = "Profile",
+                    tint = Color(0xFF2E7D32)
+                )
             }
         }
     }
@@ -330,7 +370,8 @@ fun CategoryCard(
 @Composable
 fun ProductList(
     products: List<ProductUi>,
-    onAddToCart: (String) -> Unit
+    onAddToCart: (String) -> Unit,
+    onProductClick: (ProductUi) -> Unit
 ) {
     if (products.isEmpty()) {
         Box(
@@ -346,7 +387,8 @@ fun ProductList(
             items(products) { product ->
                 ProductCard(
                     product = product,
-                    onAddToCart = { onAddToCart(product.id) }
+                    onAddToCart = { onAddToCart(product.id) },
+                    onClick = { onProductClick(product) }
                 )
             }
         }
@@ -356,10 +398,13 @@ fun ProductList(
 @Composable
 fun ProductCard(
     product: ProductUi,
-    onAddToCart: () -> Unit
+    onAddToCart: () -> Unit,
+    onClick: () -> Unit
 ) {
     Card(
-        modifier = Modifier.width(180.dp),
+        modifier = Modifier
+            .width(180.dp)
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -439,7 +484,7 @@ fun ProductCard(
                     color = Color.Black
                 )
                 Button(
-                    onClick = onAddToCart,
+                    onClick = { onAddToCart() },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFFFFC107)
                     ),
@@ -486,10 +531,17 @@ fun BottomNavigationBar(
         )
         NavigationBarItem(
             icon = {
-                Icon(
-                    imageVector = if (selectedItem == "Wishlist") Icons.Filled.Favorite else Icons.Outlined.Favorite,
-                    contentDescription = "Wishlist"
-                )
+                // Custom heart icon for wishlist
+                Box(
+                    modifier = Modifier.size(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (selectedItem == "Wishlist") "♥" else "♡",
+                        fontSize = 18.sp,
+                        color = if (selectedItem == "Wishlist") Color(0xFF4CAF50) else Color.Gray
+                    )
+                }
             },
             label = { Text("Wishlist") },
             selected = selectedItem == "Wishlist",
