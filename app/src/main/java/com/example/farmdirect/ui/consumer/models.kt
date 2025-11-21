@@ -14,7 +14,10 @@ data class ProductUi(
     val price: Double,
     val farmName: String,
     val category: String,
-    val imageUrl: String? = null
+    val imageUrl: String? = null,
+    val unit: String = "kg",
+    val stock: Int = 0,
+    val description: String = ""
 )
 
 data class WishlistItem(
@@ -24,7 +27,9 @@ data class WishlistItem(
     val price: Double,
     val farmName: String,
     val category: String,
-    val imageUrl: String? = null
+    val imageUrl: String? = null,
+    val unit: String = "kg",
+    val stock: Int = 0
 )
 
 data class CartItem(
@@ -34,7 +39,10 @@ data class CartItem(
     val price: Double,
     val quantity: Int,
     val unit: String = "kg",
-    val imageUrl: String? = null
+    val imageUrl: String? = null,
+    val farmerId: String = "",
+    val farmerName: String = "",
+    val availableStock: Int = Int.MAX_VALUE
 )
 
 data class Order(
@@ -53,6 +61,13 @@ enum class OrderStatus {
     IN_TRANSIT,
     DELIVERED,
     CANCELLED
+}
+
+enum class CheckoutStatus {
+    IDLE,
+    PROCESSING,
+    SUCCESS,
+    ERROR
 }
 
 data class PaymentMethod(

@@ -8,7 +8,7 @@ data class FarmerProduct(
     val description: String,
     val price: Double,
     val unit: String, // "kg", "L", etc.
-    val stock: Double,
+    val stock: Int,
     val category: String,
     val status: ProductStatus,
     val iconRes: Int
@@ -22,12 +22,13 @@ enum class ProductStatus {
 
 data class FarmerOrder(
     val id: String,
+    val orderId: String,
+    val orderItemId: String,
     val orderNumber: String,
     val productName: String,
     val quantity: String, // e.g., "5kg"
     val price: Double,
     val customerName: String,
-    val customerAvatar: String? = null,
     val rating: Double? = null,
     val timeAgo: String,
     val status: FarmerOrderStatus,

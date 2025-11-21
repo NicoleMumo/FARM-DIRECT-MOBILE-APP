@@ -13,7 +13,23 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
-import androidx.compose.material3.*
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -41,13 +57,16 @@ fun ConsumerHomeRoute(
     var selectedBottomNavItem by remember { mutableStateOf("Home") }
     var selectedProduct by remember { mutableStateOf<ProductUi?>(null) }
     var selectedOrder by remember { mutableStateOf<Order?>(null) }
+    val cartUiState by cartViewModel.uiState.collectAsState()
+    val cartItemCount = cartUiState.items.sumOf { it.quantity }
     
     Scaffold(
         bottomBar = {
             if (selectedProduct == null && selectedOrder == null) {
                 BottomNavigationBar(
                     selectedItem = selectedBottomNavItem,
-                    onItemSelected = { selectedBottomNavItem = it }
+                    onItemSelected = { selectedBottomNavItem = it },
+                    cartItemCount = cartItemCount
                 )
             }
         }
@@ -90,9 +109,9 @@ fun ConsumerHomeRoute(
                 }
                 selectedBottomNavItem == "Home" -> {
                     val uiState by homeViewModel.uiState.collectAsState()
-                    ConsumerHomeScreen(
-                        uiState = uiState,
-                        categories = getDefaultCategories(),
+    ConsumerHomeScreen(
+        uiState = uiState,
+        categories = getDefaultCategories(),
                         onSearchChanged = homeViewModel::onSearchChanged,
                         onCategoryClicked = homeViewModel::onCategorySelected,
                         onAddToCart = { productId ->
@@ -259,12 +278,12 @@ fun TopAppBar(
             }
             
             // Profile Icon
-            IconButton(onClick = { /* TODO: Profile */ }) {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = "Profile",
-                    tint = Color(0xFF2E7D32)
-                )
+                IconButton(onClick = { /* TODO: Profile */ }) {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = "Profile",
+                        tint = Color(0xFF2E7D32)
+                    )
             }
         }
     }
@@ -401,50 +420,42 @@ fun ProductCard(
     onAddToCart: () -> Unit,
     onClick: () -> Unit
 ) {
+    val isOutOfStock = product.stock <= 0
     Card(
         modifier = Modifier
-            .width(180.dp)
+            .width(200.dp)
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(18.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Product icon/placeholder
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(100.dp)
+                    .height(110.dp)
                     .background(
                         color = when (product.category) {
                             "Vegetables" -> Color(0xFFE6F8EB)
-                            "Fruits" -> Color(0xFFFFE7E7)
-                            "Grains" -> Color(0xFFFFF3D8)
+                            "Fruits" -> Color(0xFFFFEAEA)
+                            "Grains" -> Color(0xFFFFF4E0)
                             "Dairy" -> Color(0xFFEAF3FF)
-                            else -> Color(0xFFE6F8EB)
+                            else -> Color(0xFFECEFF1)
                         },
                         shape = RoundedCornerShape(12.dp)
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                // You can add product image here when available
-                Image(
-                    painter = painterResource(
-                        id = when (product.category) {
-                            "Vegetables" -> R.drawable.vegetable_icon
-                            "Fruits" -> R.drawable.fruit_icon
-                            "Grains" -> R.drawable.grain_icon
-                            "Dairy" -> R.drawable.dairy_icon
-                            else -> R.drawable.vegetable_icon
-                        }
-                    ),
-                    contentDescription = product.name,
-                    modifier = Modifier.size(48.dp)
+                Text(
+                    text = product.name.take(1).uppercase(),
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF2E7D32)
                 )
             }
             
@@ -457,13 +468,13 @@ fun ProductCard(
             
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.LocationOn,
-                    contentDescription = "Location",
-                    modifier = Modifier.size(12.dp),
-                    tint = Color.Gray
+                    contentDescription = "Farmer location",
+                    tint = Color.Gray,
+                    modifier = Modifier.size(14.dp)
                 )
                 Text(
                     text = product.farmName,
@@ -471,32 +482,54 @@ fun ProductCard(
                     color = Color.Gray
                 )
             }
+
+            Text(
+                text = "Ksh ${product.price.toInt()}/${product.unit}",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color.Black
+            )
             
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Ksh${product.price.toInt()}/kg",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.Black
-                )
+                Column {
+                    Text(
+                        text = if (isOutOfStock) "Out of stock" else "Stock: ${product.stock}",
+                        fontSize = 12.sp,
+                        color = if (isOutOfStock) Color(0xFFE53935) else Color.Gray,
+                        fontWeight = if (isOutOfStock) FontWeight.SemiBold else FontWeight.Normal
+                    )
+                    if (!isOutOfStock) {
+                        Text(
+                            text = "Unit: ${product.unit}",
+                            fontSize = 11.sp,
+                            color = Color.Gray
+                        )
+                    }
+                }
                 Button(
-                    onClick = { onAddToCart() },
+                    onClick = onAddToCart,
+                    enabled = !isOutOfStock,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFFFC107)
+                        containerColor = if (isOutOfStock) Color.LightGray else Color(0xFFFFC107),
+                        contentColor = if (isOutOfStock) Color.DarkGray else Color.White,
+                        disabledContainerColor = Color.LightGray,
+                        disabledContentColor = Color.DarkGray
                     ),
                     shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.height(32.dp)
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
                 ) {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_add),
-                        contentDescription = "Add",
+                        contentDescription = "Add to cart",
                         modifier = Modifier.size(16.dp),
-                        tint = Color.White
+                        tint = Color.White.takeIf { !isOutOfStock } ?: Color.DarkGray
                     )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(if (isOutOfStock) "Unavailable" else "Add")
                 }
             }
         }
@@ -506,7 +539,8 @@ fun ProductCard(
 @Composable
 fun BottomNavigationBar(
     selectedItem: String,
-    onItemSelected: (String) -> Unit
+    onItemSelected: (String) -> Unit,
+    cartItemCount: Int
 ) {
     NavigationBar(
         containerColor = Color.White,
@@ -555,10 +589,22 @@ fun BottomNavigationBar(
         )
         NavigationBarItem(
             icon = {
+                BadgedBox(
+                    badge = {
+                        if (cartItemCount > 0) {
+                            Badge(
+                                containerColor = Color(0xFFFFC107)
+                            ) {
+                                Text(cartItemCount.toString())
+                            }
+                        }
+                    }
+                ) {
                 Icon(
                     imageVector = if (selectedItem == "Cart") Icons.Filled.ShoppingCart else Icons.Outlined.ShoppingCart,
                     contentDescription = "Cart"
                 )
+                }
             },
             label = { Text("Cart") },
             selected = selectedItem == "Cart",

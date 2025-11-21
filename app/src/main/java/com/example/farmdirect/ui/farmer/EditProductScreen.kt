@@ -158,8 +158,8 @@ fun EditProductScreen(
                                     name = productName,
                                     description = description,
                                     price = price.toDoubleOrNull() ?: currentProduct.price,
-                                    unit = unit,
-                                    stock = stock.toDoubleOrNull() ?: currentProduct.stock,
+                                    unit = unit.ifBlank { currentProduct.unit },
+                                    stock = stock.toIntOrNull() ?: currentProduct.stock,
                                     category = category
                                 )
                                 onUpdateProduct(updatedProduct)

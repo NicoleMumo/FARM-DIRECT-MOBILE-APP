@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.farmdirect.R
+import com.example.farmdirect.ui.consumer.CheckoutStatus
 
 @Composable
 fun CartRoute(
@@ -36,7 +37,8 @@ fun CartRoute(
         onRemoveItem = viewModel::removeItem,
         onPaymentMethodSelected = viewModel::selectPaymentMethod,
         onChangeAddress = { /* TODO: Navigate to address selection */ },
-        onCheckout = viewModel::checkout
+        onCheckout = viewModel::checkout,
+        onDismissPaymentPrompt = viewModel::dismissPaymentPrompt
     )
 }
 
@@ -47,46 +49,50 @@ fun CartScreen(
     onRemoveItem: (String) -> Unit,
     onPaymentMethodSelected: (String) -> Unit,
     onChangeAddress: () -> Unit,
-    onCheckout: () -> Unit
+    onCheckout: () -> Unit,
+    onDismissPaymentPrompt: () -> Unit
 ) {
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFFF7F9FA))
     ) {
-        // Header
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = Color(0xFF2E7D32)
+        Column(
+            modifier = Modifier.fillMaxSize()
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+            // Header
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = Color(0xFF2E7D32)
             ) {
-                IconButton(onClick = { /* TODO: Navigate back */ }) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Back",
-                        tint = Color.White
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = { /* TODO: Navigate back */ }) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color.White
+                        )
+                    }
+                    Text(
+                        text = "Cart & Checkout",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier.weight(1f)
                     )
                 }
-                Text(
-                    text = "Cart & Checkout",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    modifier = Modifier.weight(1f)
-                )
             }
-        }
-        
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
+            
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
             // Your Cart Section
             item {
                 Text(
@@ -161,13 +167,35 @@ fun CartScreen(
             // Checkout Button
             item {
                 Spacer(modifier = Modifier.height(16.dp))
+                if (uiState.errorMessage != null) {
+                    Text(
+                        text = uiState.errorMessage,
+                        color = Color.Red,
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
+                if (uiState.checkoutMessage != null) {
+                    Text(
+                        text = uiState.checkoutMessage,
+                        color = when (uiState.checkoutStatus) {
+                            CheckoutStatus.SUCCESS -> Color(0xFF2E7D32)
+                            CheckoutStatus.ERROR -> Color.Red
+                            else -> Color.Gray
+                        },
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
                 Button(
                     onClick = onCheckout,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp),
+                    enabled = uiState.checkoutStatus != CheckoutStatus.PROCESSING && !uiState.isLoading && uiState.items.isNotEmpty(),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFFF9800)
+                        containerColor = Color(0xFFFF9800),
+                        disabledContainerColor = Color(0xFFFFC107)
                     ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
@@ -181,15 +209,51 @@ fun CartScreen(
                             tint = Color.White
                         )
                         Text(
-                            text = "Checkout",
+                            text = if (uiState.checkoutStatus == CheckoutStatus.PROCESSING) "Processing..." else "Checkout",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
                     }
                 }
+                if (uiState.checkoutStatus == CheckoutStatus.PROCESSING) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    LinearProgressIndicator(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = Color(0xFF2E7D32)
+                    )
+                }
             }
         }
+        }
+    }
+    
+    if (uiState.showPaymentPrompt) {
+        AlertDialog(
+            onDismissRequest = onDismissPaymentPrompt,
+            confirmButton = {
+                TextButton(onClick = onDismissPaymentPrompt) {
+                    Text("Got it")
+                }
+            },
+            title = {
+                Text(text = "Confirm STK Push")
+            },
+            text = {
+                Text(
+                    text = uiState.paymentPromptMessage
+                        ?: "An STK push has been initiated. Approve it on your device to continue."
+                )
+            },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Phone,
+                    contentDescription = null,
+                    tint = Color(0xFF4CAF50)
+                )
+            },
+            shape = RoundedCornerShape(16.dp)
+        )
     }
 }
 

@@ -12,7 +12,16 @@
           "package_name": "com.example.farmdirect"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "444157539579-mdmjvvbu3n4oe2l7pv05en4sv5iddl5v.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.farmdirect",
+            "certificate_hash": "9352137c90e683957ada9cf52c7a6dd1f63ebe8c"
+          }
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCQ0XccGNDe0q3sZD-pTSFwbKJhmyUFqcs"

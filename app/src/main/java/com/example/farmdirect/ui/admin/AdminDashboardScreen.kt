@@ -35,7 +35,8 @@ fun AdminDashboardRoute(
     dashboardViewModel: AdminDashboardViewModel = viewModel(),
     userManagementViewModel: UserManagementViewModel = viewModel(),
     orderManagementViewModel: OrderManagementViewModel = viewModel(),
-    productManagementViewModel: ProductManagementViewModel = viewModel()
+    productManagementViewModel: ProductManagementViewModel = viewModel(),
+    profileViewModel: AdminProfileViewModel = viewModel()
 ) {
     var selectedBottomNavItem by remember { mutableStateOf("Dashboard") }
     
@@ -70,6 +71,9 @@ fun AdminDashboardRoute(
                 }
                 "Products" -> {
                     ProductManagementRoute(viewModel = productManagementViewModel)
+                }
+                "Profile" -> {
+                    AdminProfileRoute(viewModel = profileViewModel)
                 }
             }
         }
@@ -453,6 +457,23 @@ fun AdminBottomNavigationBar(
             label = { Text("Products") },
             selected = selectedItem == "Products",
             onClick = { onItemSelected("Products") },
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = Color(0xFF4CAF50),
+                selectedTextColor = Color(0xFF4CAF50),
+                unselectedIconColor = Color.Gray,
+                unselectedTextColor = Color.Gray
+            )
+        )
+        NavigationBarItem(
+            icon = {
+                Icon(
+                    imageVector = if (selectedItem == "Profile") Icons.Filled.Settings else Icons.Outlined.Settings,
+                    contentDescription = "Profile"
+                )
+            },
+            label = { Text("Profile") },
+            selected = selectedItem == "Profile",
+            onClick = { onItemSelected("Profile") },
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = Color(0xFF4CAF50),
                 selectedTextColor = Color(0xFF4CAF50),

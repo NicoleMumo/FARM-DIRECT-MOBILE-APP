@@ -33,7 +33,7 @@ fun WishlistRoute(
     WishlistScreen(
         uiState = uiState,
         onRemoveItem = viewModel::removeFromWishlist,
-        onAddToCart = viewModel::addToCart,
+        onAddToCart = viewModel::moveItemToCart,
         onSearchChanged = viewModel::onSearchChanged,
         onProductClick = onProductClick
     )
@@ -43,7 +43,7 @@ fun WishlistRoute(
 fun WishlistScreen(
     uiState: WishlistUiState,
     onRemoveItem: (String) -> Unit,
-    onAddToCart: (String) -> Unit,
+    onAddToCart: (WishlistItem) -> Unit,
     onSearchChanged: (String) -> Unit,
     onProductClick: (ProductUi) -> Unit
 ) {
@@ -123,7 +123,7 @@ fun WishlistScreen(
                         WishlistItemCard(
                             item = item,
                             onRemove = { onRemoveItem(item.id) },
-                            onAddToCart = { onAddToCart(item.productId) },
+                            onAddToCart = { onAddToCart(item) },
                             onClick = {
                                 onProductClick(
                                     ProductUi(
@@ -132,7 +132,9 @@ fun WishlistScreen(
                                         price = item.price,
                                         farmName = item.farmName,
                                         category = item.category,
-                                        imageUrl = item.imageUrl
+                                        imageUrl = item.imageUrl,
+                                        unit = item.unit,
+                                        stock = item.stock
                                     )
                                 )
                             }
@@ -214,22 +216,29 @@ fun WishlistItemCard(
                 ) {
                     Icon(
                         imageVector = Icons.Default.LocationOn,
-                        contentDescription = "Location",
+                        contentDescription = "Farmer",
                         modifier = Modifier.size(14.dp),
                         tint = Color.Gray
                     )
                     Text(
                         text = item.farmName,
                         fontSize = 12.sp,
-                        color = Color.Gray
+                        color = Color.Gray,
+                        maxLines = 1
                     )
                 }
                 
                 Text(
-                    text = "Ksh ${item.price.toInt()}",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color(0xFF2E7D32)
+                    text = "KSh ${item.price.toInt()}/${item.unit}",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF4CAF50)
+                )
+                Text(
+                    text = if (item.stock > 0) "Stock: ${item.stock}" else "Out of stock",
+                    fontSize = 12.sp,
+                    color = if (item.stock > 0) Color.Gray else Color(0xFFE53935),
+                    fontWeight = if (item.stock > 0) FontWeight.Normal else FontWeight.SemiBold
                 )
             }
             
@@ -249,8 +258,10 @@ fun WishlistItemCard(
                 
                 Button(
                     onClick = onAddToCart,
+                    enabled = item.stock > 0,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF4CAF50)
+                        containerColor = if (item.stock > 0) Color(0xFF4CAF50) else Color.LightGray,
+                        contentColor = if (item.stock > 0) Color.White else Color.DarkGray
                     ),
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.height(36.dp)
@@ -264,7 +275,10 @@ fun WishlistItemCard(
                             contentDescription = "Add to Cart",
                             modifier = Modifier.size(16.dp)
                         )
-                        Text("Add to Cart", fontSize = 12.sp)
+                        Text(
+                            text = if (item.stock > 0) "Add to Cart" else "Unavailable",
+                            fontSize = 12.sp
+                        )
                     }
                 }
             }
