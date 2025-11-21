@@ -5,7 +5,7 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath("com.android.tools.build:gradle:8.13.0")
+        classpath("com.android.tools.build:gradle:8.13.1")
         // Kotlin version is managed by version catalog (libs.versions.toml)
         classpath("com.google.gms:google-services:4.4.0")
     }

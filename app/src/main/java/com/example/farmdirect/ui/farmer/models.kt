@@ -37,7 +37,9 @@ data class FarmerOrder(
 enum class FarmerOrderStatus {
     PENDING,
     PREPARED,
-    DELIVERED
+    CONFIRMED,
+    DELIVERED,
+    CANCELLED
 }
 
 data class DashboardMetric(

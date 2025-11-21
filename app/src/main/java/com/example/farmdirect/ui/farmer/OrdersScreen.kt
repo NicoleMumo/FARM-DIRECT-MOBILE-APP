@@ -318,7 +318,9 @@ fun OrderStatusBadge(status: FarmerOrderStatus) {
     val (text, color) = when (status) {
         FarmerOrderStatus.PENDING -> "Pending" to Color(0xFFFFC107)
         FarmerOrderStatus.PREPARED -> "Prepared" to Color(0xFF4CAF50)
+        FarmerOrderStatus.CONFIRMED -> "Confirmed" to Color(0xFF2196F3)
         FarmerOrderStatus.DELIVERED -> "Delivered" to Color(0xFF4CAF50)
+        FarmerOrderStatus.CANCELLED -> "Cancelled" to Color.Gray
     }
     
     Surface(

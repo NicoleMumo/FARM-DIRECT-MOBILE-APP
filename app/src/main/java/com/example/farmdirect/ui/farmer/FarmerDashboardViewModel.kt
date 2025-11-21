@@ -2,25 +2,28 @@ package com.example.farmdirect.ui.farmer
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.farmdirect.data.FarmDirectRepository
+import com.example.farmdirect.model.Order
+import com.example.farmdirect.model.OrderStatus
+import com.example.farmdirect.utils.FirebaseUtils
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 data class FarmerDashboardUiState(
-    val totalSales: String = "KSh 45,200",
-    val salesGrowth: String = "+12%",
-    val pendingOrders: Int = 12,
-    val newPendingOrders: Int = 5,
-    val restockingAlert: RestockingAlert? = RestockingAlert(
-        count = 3,
-        products = listOf("Maize", "Milk", "Tomatoes")
-    ),
+    val totalSales: String = "KSh 0",
+    val salesGrowth: String = "+0%",
+    val pendingOrders: Int = 0,
+    val newPendingOrders: Int = 0,
+    val restockingAlert: RestockingAlert? = null,
     val recentOrders: List<FarmerOrder> = emptyList(),
     val isLoading: Boolean = false
 )
 
-class FarmerDashboardViewModel : ViewModel() {
+class FarmerDashboardViewModel(private val repository: FarmDirectRepository = FarmDirectRepository()) : ViewModel() {
     private val _uiState = MutableStateFlow(FarmerDashboardUiState())
     val uiState: StateFlow<FarmerDashboardUiState> = _uiState.asStateFlow()
 
@@ -31,39 +34,40 @@ class FarmerDashboardViewModel : ViewModel() {
     private fun loadDashboardData() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
-            
-            // TODO: Load from Firebase
-            val mockOrders = listOf(
-                FarmerOrder(
-                    id = "1",
-                    orderNumber = "12345",
-                    productName = "Fresh Maize",
-                    quantity = "5kg",
-                    price = 500.0,
-                    customerName = "Mary K.",
-                    rating = 4.8,
-                    timeAgo = "2 hours ago",
-                    status = FarmerOrderStatus.PENDING,
-                    iconRes = com.example.farmdirect.R.drawable.grain_icon
-                ),
-                FarmerOrder(
-                    id = "2",
-                    orderNumber = "12344",
-                    productName = "Fresh Milk",
-                    quantity = "2L",
-                    price = 200.0,
-                    customerName = "James M.",
-                    rating = 4.5,
-                    timeAgo = "1 day ago",
-                    status = FarmerOrderStatus.DELIVERED,
-                    iconRes = com.example.farmdirect.R.drawable.dairy_icon
+            val userId = FirebaseUtils.auth.currentUser?.uid
+            if (userId != null) {
+                val orders = repository.getOrdersForFarmer(userId)
+                val farmerOrders = orders.map { order ->
+                    async {
+                        val product = repository.getProduct(order.productId)
+                        val customer = repository.getUser(order.customerId)
+                        FarmerOrder(
+                            id = order.id,
+                            orderNumber = order.orderNumber,
+                            productName = product?.name ?: "",
+                            quantity = "${order.quantity} kg", // Assuming kg for now
+                            price = order.price,
+                            customerName = customer?.name ?: "",
+                            rating = 4.5, // Placeholder
+                            timeAgo = "2 hours ago", // Placeholder
+                            status = if (order.status == OrderStatus.PENDING) FarmerOrderStatus.PENDING else FarmerOrderStatus.DELIVERED,
+                            iconRes = com.example.farmdirect.R.drawable.grain_icon // Placeholder
+                        )
+                    }
+                }.awaitAll()
+
+                val totalSales = orders.sumOf { it.price }
+                val pendingOrders = orders.count { it.status == OrderStatus.PENDING }
+
+                _uiState.value = _uiState.value.copy(
+                    recentOrders = farmerOrders,
+                    totalSales = "KSh $totalSales",
+                    pendingOrders = pendingOrders,
+                    isLoading = false
                 )
-            )
-            
-            _uiState.value = _uiState.value.copy(
-                recentOrders = mockOrders,
-                isLoading = false
-            )
+            } else {
+                _uiState.value = _uiState.value.copy(isLoading = false)
+            }
         }
     }
 
@@ -71,4 +75,3 @@ class FarmerDashboardViewModel : ViewModel() {
         loadDashboardData()
     }
 }
-

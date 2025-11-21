@@ -37,7 +37,7 @@ fun FarmerDashboardRoute(
     profileViewModel: FarmerProfileViewModel = viewModel()
 ) {
     var selectedBottomNavItem by remember { mutableStateOf("Dashboard") }
-    
+
     Scaffold(
         bottomBar = {
             FarmerBottomNavigationBar(
@@ -65,7 +65,7 @@ fun FarmerDashboardRoute(
                     )
                 }
                 "Products" -> {
-                    ProductsRoute(viewModel = productsViewModel)
+                    FarmerNavigation()
                 }
                 "Orders" -> {
                     OrdersRoute(viewModel = ordersViewModel)
@@ -96,7 +96,7 @@ fun FarmerDashboardScreen(
     ) {
         // Header
         FarmerHeader(title = "FarmDirect")
-        
+
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(16.dp),
@@ -117,7 +117,7 @@ fun FarmerDashboardScreen(
                         iconRes = R.drawable.ic_seed,
                         iconColor = Color(0xFFFFC107)
                     )
-                    
+
                     // Pending Orders Card
                     MetricCard(
                         modifier = Modifier.weight(1f),
@@ -130,14 +130,14 @@ fun FarmerDashboardScreen(
                     )
                 }
             }
-            
+
             // Restocking Alert
             item {
                 uiState.restockingAlert?.let { alert ->
                     RestockingAlertCard(alert = alert)
                 }
             }
-            
+
             // Recent Orders Section
             item {
                 Row(
@@ -159,12 +159,12 @@ fun FarmerDashboardScreen(
                     )
                 }
             }
-            
+
             // Recent Orders List
             items(uiState.recentOrders) { order ->
                 RecentOrderCard(order = order)
             }
-            
+
             // Quick Actions
             item {
                 Text(
@@ -175,7 +175,7 @@ fun FarmerDashboardScreen(
                     modifier = Modifier.padding(top = 8.dp)
                 )
             }
-            
+
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -203,7 +203,7 @@ fun FarmerDashboardScreen(
 }
 
 @Composable
-fun FarmerHeader(title: String) {
+fun FarmerHeader(title: String, onUpClick: (() -> Unit)? = null) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = Color(0xFF2E7D32),
@@ -220,17 +220,27 @@ fun FarmerHeader(title: String) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .background(Color(0xFFFFC107), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.ic_seed),
-                        contentDescription = "Logo",
-                        modifier = Modifier.size(20.dp)
-                    )
+                if (onUpClick != null) {
+                    IconButton(onClick = onUpClick) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color.White
+                        )
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .background(Color(0xFFFFC107), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_seed),
+                            contentDescription = "Logo",
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
                 Text(
                     text = title,
@@ -239,7 +249,7 @@ fun FarmerHeader(title: String) {
                     color = Color.White
                 )
             }
-            
+
             Icon(
                 imageVector = Icons.Default.Person,
                 contentDescription = "Profile",
@@ -398,7 +408,7 @@ fun RecentOrderCard(order: FarmerOrder) {
                     modifier = Modifier.size(32.dp)
                 )
             }
-            
+
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -420,7 +430,7 @@ fun RecentOrderCard(order: FarmerOrder) {
                     color = Color.Gray
                 )
             }
-            
+
             StatusBadge(status = order.status)
         }
     }
@@ -431,9 +441,11 @@ fun StatusBadge(status: FarmerOrderStatus) {
     val (text, color) = when (status) {
         FarmerOrderStatus.PENDING -> "Pending" to Color(0xFFFFC107)
         FarmerOrderStatus.PREPARED -> "Prepared" to Color(0xFF4CAF50)
+        FarmerOrderStatus.CONFIRMED -> "Confirmed" to Color(0xFF2196F3)
         FarmerOrderStatus.DELIVERED -> "Delivered" to Color(0xFF4CAF50)
+        FarmerOrderStatus.CANCELLED -> "Cancelled" to Color.Gray
     }
-    
+
     Surface(
         shape = RoundedCornerShape(8.dp),
         color = color.copy(alpha = 0.2f)
@@ -594,4 +606,3 @@ fun FarmerBottomNavigationBar(
         )
     }
 }
-

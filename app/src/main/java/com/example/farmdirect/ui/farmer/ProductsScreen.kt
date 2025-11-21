@@ -26,16 +26,18 @@ import com.example.farmdirect.R
 
 @Composable
 fun ProductsRoute(
-    viewModel: ProductsViewModel = viewModel()
+    viewModel: ProductsViewModel = viewModel(),
+    onAddProduct: () -> Unit,
+    onEditProduct: (String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    
+
     ProductsScreen(
         uiState = uiState,
         onDeleteProduct = viewModel::deleteProduct,
         onRefresh = viewModel::refresh,
-        onAddProduct = { /* TODO: Navigate to add product */ },
-        onEditProduct = { /* TODO: Navigate to edit product */ }
+        onAddProduct = onAddProduct,
+        onEditProduct = onEditProduct
     )
 }
 
@@ -54,7 +56,7 @@ fun ProductsScreen(
     ) {
         // Header
         FarmerHeader(title = "Products")
-        
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -86,7 +88,7 @@ fun ProductsScreen(
                     )
                 }
             }
-            
+
             // My Products Section
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -106,7 +108,7 @@ fun ProductsScreen(
                     modifier = Modifier.size(24.dp)
                 )
             }
-            
+
             // Products List
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -164,7 +166,7 @@ fun ProductCard(
                     modifier = Modifier.size(40.dp)
                 )
             }
-            
+
             // Product Info
             Column(
                 modifier = Modifier.weight(1f),
@@ -190,11 +192,11 @@ fun ProductCard(
                 Text(
                     text = "Stock: ${product.stock.toInt()}${product.unit}",
                     fontSize = 12.sp,
-                    color = if (product.status == ProductStatus.OUT_OF_STOCK || product.status == ProductStatus.LOW_STOCK) 
+                    color = if (product.status == ProductStatus.OUT_OF_STOCK || product.status == ProductStatus.LOW_STOCK)
                         Color(0xFFE53935) else Color.Gray
                 )
             }
-            
+
             // Status Badge and Actions
             Column(
                 horizontalAlignment = Alignment.End,
@@ -239,7 +241,7 @@ fun ProductStatusBadge(status: ProductStatus) {
         ProductStatus.LOW_STOCK -> "Low Stock" to Color(0xFFE53935)
         ProductStatus.OUT_OF_STOCK -> "Out of Stock" to Color(0xFFE53935)
     }
-    
+
     Surface(
         shape = RoundedCornerShape(12.dp),
         color = color.copy(alpha = 0.2f)
@@ -253,4 +255,3 @@ fun ProductStatusBadge(status: ProductStatus) {
         )
     }
 }
-

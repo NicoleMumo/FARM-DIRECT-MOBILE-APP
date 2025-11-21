@@ -2,25 +2,27 @@ package com.example.farmdirect.ui.farmer
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.farmdirect.data.FarmDirectRepository
+import com.example.farmdirect.utils.FirebaseUtils
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 data class FarmerProfileUiState(
-    val farmerName: String = "John Farmer",
-    val email: String = "farmer@example.com",
-    val phone: String = "+254 712 345 678",
-    val farmName: String = "Green Valley Farm",
-    val location: String = "Nakuru County",
-    val joinDate: String = "Joined Jan 2024",
-    val totalProducts: Int = 12,
-    val totalOrders: Int = 45,
-    val totalRevenue: String = "KSh 125,000",
+    val farmerName: String = "",
+    val email: String = "",
+    val phone: String = "",
+    val farmName: String = "",
+    val location: String = "",
+    val joinDate: String = "",
+    val totalProducts: Int = 0,
+    val totalOrders: Int = 0,
+    val totalRevenue: String = "",
     val isLoading: Boolean = false
 )
 
-class FarmerProfileViewModel : ViewModel() {
+class FarmerProfileViewModel(private val repository: FarmDirectRepository = FarmDirectRepository()) : ViewModel() {
     private val _uiState = MutableStateFlow(FarmerProfileUiState())
     val uiState: StateFlow<FarmerProfileUiState> = _uiState.asStateFlow()
 
@@ -31,8 +33,19 @@ class FarmerProfileViewModel : ViewModel() {
     private fun loadProfile() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
-            // TODO: Load from Firebase
-            _uiState.value = _uiState.value.copy(isLoading = false)
+            val userId = FirebaseUtils.auth.currentUser?.uid
+            if (userId != null) {
+                val farmer = repository.getUser(userId)
+                if (farmer != null) {
+                    _uiState.value = _uiState.value.copy(
+                        farmerName = farmer.name,
+                        email = farmer.email,
+                        isLoading = false
+                    )
+                }
+            } else {
+                // Handle user not logged in
+            }
         }
     }
 
@@ -40,4 +53,3 @@ class FarmerProfileViewModel : ViewModel() {
         loadProfile()
     }
 }
-
