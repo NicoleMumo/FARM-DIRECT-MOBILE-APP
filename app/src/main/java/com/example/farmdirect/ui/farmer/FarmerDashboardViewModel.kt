@@ -43,6 +43,8 @@ class FarmerDashboardViewModel(private val repository: FarmDirectRepository = Fa
                         val customer = repository.getUser(order.customerId)
                         FarmerOrder(
                             id = order.id,
+                            orderId = order.id,
+                            orderItemId = order.id,
                             orderNumber = order.orderNumber,
                             productName = product?.name ?: "",
                             quantity = "${order.quantity} kg", // Assuming kg for now

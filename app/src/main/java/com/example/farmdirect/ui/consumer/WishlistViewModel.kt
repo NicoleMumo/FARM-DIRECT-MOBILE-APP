@@ -20,31 +20,44 @@ data class WishlistUiState(
 class WishlistViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(WishlistUiState())
     val uiState: StateFlow<WishlistUiState> = _uiState.asStateFlow()
-    
-    private val userId = FirebaseUtils.auth.currentUser?.uid ?: ""
-    
+
+    private val firestore = FirebaseUtils.firestore
+    private val auth = FirebaseUtils.auth
+
     init {
         fetchWishlist()
     }
-    
+
+    private fun currentUserId(): String? = auth.currentUser?.uid
+
     fun fetchWishlist() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+            val userId = currentUserId()
+            if (userId.isNullOrBlank()) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    items = emptyList(),
+                    filteredItems = emptyList(),
+                    errorMessage = "Please log in to view your wishlist"
+                )
+                return@launch
+            }
             try {
-                val result = FirebaseUtils.firestore
+                val result = firestore
                     .collection("wishlist")
                     .whereEqualTo("userId", userId)
                     .get()
                     .await()
-                
+
                 val items = result.documents.mapNotNull { document ->
                     val productId = document.getString("productId") ?: return@mapNotNull null
-                    val productDoc = FirebaseUtils.firestore
+                    val productDoc = firestore
                         .collection("products")
                         .document(productId)
                         .get()
                         .await()
-                    
+
                     val product = productDoc.toObject(com.example.farmdirect.model.Product::class.java)
                     product?.let {
                         WishlistItem(
@@ -52,13 +65,15 @@ class WishlistViewModel : ViewModel() {
                             productId = productId,
                             name = it.name,
                             price = it.price,
-                            farmName = "Green Valley Farm", // TODO: Get from farmer data
-                            category = "Vegetables", // TODO: Add to Product model
-                            imageUrl = null
+                            farmName = it.farmerName.ifBlank { "Partner Farm" },
+                            category = it.category.ifBlank { "Vegetables" },
+                            imageUrl = it.imageUrl,
+                            unit = it.unit.ifBlank { "kg" },
+                            stock = it.stock
                         )
                     }
                 }
-                
+
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     items = items,
@@ -72,25 +87,31 @@ class WishlistViewModel : ViewModel() {
             }
         }
     }
-    
+
     fun addToWishlist(productId: String) {
         viewModelScope.launch {
+            val userId = currentUserId()
+            if (userId.isNullOrBlank()) {
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = "Please log in to save items"
+                )
+                return@launch
+            }
             try {
-                // Check if already in wishlist
-                val existing = FirebaseUtils.firestore
+                val existing = firestore
                     .collection("wishlist")
                     .whereEqualTo("userId", userId)
                     .whereEqualTo("productId", productId)
                     .get()
                     .await()
-                
+
                 if (existing.documents.isEmpty()) {
                     val wishlistItem = hashMapOf(
                         "userId" to userId,
                         "productId" to productId,
                         "createdAt" to com.google.firebase.Timestamp.now()
                     )
-                    FirebaseUtils.firestore
+                    firestore
                         .collection("wishlist")
                         .add(wishlistItem)
                         .await()
@@ -103,11 +124,18 @@ class WishlistViewModel : ViewModel() {
             }
         }
     }
-    
+
     fun removeFromWishlist(itemId: String) {
         viewModelScope.launch {
+            val userId = currentUserId()
+            if (userId.isNullOrBlank()) {
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = "Please log in to manage your wishlist"
+                )
+                return@launch
+            }
             try {
-                FirebaseUtils.firestore
+                firestore
                     .collection("wishlist")
                     .document(itemId)
                     .delete()
@@ -120,31 +148,82 @@ class WishlistViewModel : ViewModel() {
             }
         }
     }
-    
-    fun addToCart(productId: String) {
+
+    fun moveItemToCart(item: WishlistItem) {
         viewModelScope.launch {
-            try {
-                val cartItem = hashMapOf(
-                    "userId" to userId,
-                    "productId" to productId,
-                    "quantity" to 1
+            val userId = currentUserId()
+            if (userId.isNullOrBlank()) {
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = "Please log in to add items to your cart"
                 )
-                FirebaseUtils.firestore
-                    .collection("cart")
-                    .add(cartItem)
+                return@launch
+            }
+            try {
+                val productSnapshot = firestore
+                    .collection("products")
+                    .document(item.productId)
+                    .get()
                     .await()
+                val stockAvailable = productSnapshot.getLong("stock")?.toInt() ?: item.stock
+                if (stockAvailable <= 0) {
+                    _uiState.value = _uiState.value.copy(
+                        errorMessage = "${item.name} is currently out of stock"
+                    )
+                    return@launch
+                }
+
+                val cartQuery = firestore
+                    .collection("cart")
+                    .whereEqualTo("userId", userId)
+                    .whereEqualTo("productId", item.productId)
+                    .get()
+                    .await()
+
+                if (cartQuery.documents.isNotEmpty()) {
+                    val cartDoc = cartQuery.documents.first()
+                    val currentQuantity = cartDoc.getLong("quantity")?.toInt() ?: 0
+                    if (currentQuantity >= stockAvailable) {
+                        _uiState.value = _uiState.value.copy(
+                            errorMessage = "You already have the maximum stock for ${item.name} in your cart"
+                        )
+                        return@launch
+                    }
+                    firestore
+                        .collection("cart")
+                        .document(cartDoc.id)
+                        .update("quantity", currentQuantity + 1)
+                        .await()
+                } else {
+                    val cartItem = hashMapOf(
+                        "userId" to userId,
+                        "productId" to item.productId,
+                        "quantity" to 1
+                    )
+                    firestore
+                        .collection("cart")
+                        .add(cartItem)
+                        .await()
+                }
+
+                firestore
+                    .collection("wishlist")
+                    .document(item.id)
+                    .delete()
+                    .await()
+
+                fetchWishlist()
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
-                    errorMessage = e.message ?: "Failed to add to cart"
+                    errorMessage = e.message ?: "Failed to add item to cart"
                 )
             }
         }
     }
-    
+
     fun onSearchChanged(query: String) {
         val filtered = _uiState.value.items.filter {
             it.name.contains(query, ignoreCase = true) ||
-            it.farmName.contains(query, ignoreCase = true)
+                it.farmName.contains(query, ignoreCase = true)
         }
         _uiState.value = _uiState.value.copy(
             searchQuery = query,

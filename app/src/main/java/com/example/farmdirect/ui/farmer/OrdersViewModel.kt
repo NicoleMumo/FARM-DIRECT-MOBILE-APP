@@ -3,16 +3,16 @@ package com.example.farmdirect.ui.farmer
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.farmdirect.R
-import com.example.farmdirect.data.FarmDirectRepository
-import com.example.farmdirect.model.Order
-import com.example.farmdirect.model.OrderStatus
 import com.example.farmdirect.utils.FirebaseUtils
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
+import com.google.firebase.Timestamp
+import com.google.firebase.firestore.ListenerRegistration
+import com.google.firebase.firestore.Query
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import java.util.concurrent.TimeUnit
 
 data class OrdersUiState(
     val pendingCount: Int = 0,
@@ -20,42 +20,77 @@ data class OrdersUiState(
     val deliveredCount: Int = 0,
     val selectedFilter: FarmerOrderStatus? = null,
     val orders: List<FarmerOrder> = emptyList(),
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    val errorMessage: String? = null
 )
 
-class OrdersViewModel(private val repository: FarmDirectRepository = FarmDirectRepository()) : ViewModel() {
+class OrdersViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(OrdersUiState())
     val uiState: StateFlow<OrdersUiState> = _uiState.asStateFlow()
 
+    private val farmerId = FirebaseUtils.auth.currentUser?.uid ?: ""
+    private var ordersListener: ListenerRegistration? = null
+
     init {
-        loadOrders()
+        observeOrders()
     }
 
-    private fun loadOrders() {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
-            val farmerId = FirebaseUtils.auth.currentUser?.uid
-            if (farmerId != null) {
-                val orders = repository.getOrdersForFarmer(farmerId)
-                val farmerOrders = orders.map { order ->
-                    async {
-                        val product = repository.getProduct(order.productId)
-                        val customer = repository.getUser(order.customerId)
-                        order.toFarmerOrder(product?.name, customer?.name)
+    private fun observeOrders() {
+        if (farmerId.isBlank()) {
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                errorMessage = "Please log in to view orders"
+            )
+            return
+        }
+        _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+        ordersListener?.remove()
+        ordersListener = FirebaseUtils.firestore
+            .collection("farmerOrders")
+            .whereEqualTo("farmerId", farmerId)
+            .orderBy("createdAt", Query.Direction.DESCENDING)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        errorMessage = error.message ?: "Failed to load orders"
+                    )
+                    return@addSnapshotListener
+                }
+                val orders = snapshot?.documents?.map { document ->
+                    val status = when (document.getString("status")?.uppercase()) {
+                        "PREPARED" -> FarmerOrderStatus.PREPARED
+                        "DELIVERED" -> FarmerOrderStatus.DELIVERED
+                        "CANCELLED" -> FarmerOrderStatus.CANCELLED
+                        else -> FarmerOrderStatus.PENDING
                     }
-                }.awaitAll()
+                    val quantity = document.getLong("quantity")?.toInt() ?: 0
+                    val unit = document.getString("unit") ?: "kg"
+                    val category = document.getString("category") ?: "vegetables"
+                    val createdAt = document.getTimestamp("createdAt")
+                    FarmerOrder(
+                        id = document.id,
+                        orderId = document.getString("orderId") ?: "",
+                        orderItemId = document.getString("orderItemId") ?: document.id,
+                        orderNumber = document.getString("orderNumber") ?: "Order",
+                        productName = document.getString("productName") ?: "Produce",
+                        quantity = "$quantity $unit",
+                        price = document.getDouble("price") ?: 0.0,
+                        customerName = document.getString("consumerName") ?: "Customer",
+                        timeAgo = createdAt?.let { it.toRelativeTime() } ?: "Just now",
+                        status = status,
+                        iconRes = categoryToIcon(category)
+                    )
+                }.orEmpty()
 
                 _uiState.value = _uiState.value.copy(
-                    orders = farmerOrders,
-                    pendingCount = farmerOrders.count { it.status == FarmerOrderStatus.PENDING },
-                    preparedCount = farmerOrders.count { it.status == FarmerOrderStatus.PREPARED },
-                    deliveredCount = farmerOrders.count { it.status == FarmerOrderStatus.DELIVERED },
+                    orders = orders,
+                    pendingCount = orders.count { it.status == FarmerOrderStatus.PENDING },
+                    preparedCount = orders.count { it.status == FarmerOrderStatus.PREPARED },
+                    deliveredCount = orders.count { it.status == FarmerOrderStatus.DELIVERED },
                     isLoading = false
                 )
-            } else {
-                _uiState.value = _uiState.value.copy(isLoading = false)
             }
-        }
     }
 
     fun selectFilter(status: FarmerOrderStatus?) {
@@ -72,35 +107,103 @@ class OrdersViewModel(private val repository: FarmDirectRepository = FarmDirectR
     }
 
     fun refresh() {
-        loadOrders()
+        observeOrders()
+    }
+
+    fun updateOrderStatus(order: FarmerOrder, newStatus: FarmerOrderStatus) {
+        if (order.orderId.isBlank()) return
+        viewModelScope.launch {
+            try {
+                val statusString = when (newStatus) {
+                    FarmerOrderStatus.PENDING -> "PENDING"
+                    FarmerOrderStatus.PREPARED -> "PREPARED"
+                    FarmerOrderStatus.CONFIRMED -> "IN_TRANSIT"
+                    FarmerOrderStatus.DELIVERED -> "DELIVERED"
+                    FarmerOrderStatus.CANCELLED -> "CANCELLED"
+                }
+                val batch = FirebaseUtils.firestore.batch()
+                val farmerOrderRef = FirebaseUtils.firestore
+                    .collection("farmerOrders")
+                    .document(order.id)
+                batch.update(
+                    farmerOrderRef,
+                    mapOf(
+                        "status" to statusString,
+                        "updatedAt" to Timestamp.now()
+                    )
+                )
+
+                if (order.orderItemId.isNotBlank()) {
+                    val orderItemRef = FirebaseUtils.firestore
+                        .collection("orders")
+                        .document(order.orderId)
+                        .collection("items")
+                        .document(order.orderItemId)
+                    batch.update(orderItemRef, "status", statusString)
+                }
+
+                batch.commit().await()
+                recalculateConsumerOrderStatus(order.orderId)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = e.message ?: "Failed to update order"
+                )
+            }
+        }
+    }
+
+    private fun recalculateConsumerOrderStatus(orderId: String) {
+        viewModelScope.launch {
+            try {
+                val snapshot = FirebaseUtils.firestore
+                    .collection("orders")
+                    .document(orderId)
+                    .collection("items")
+                    .get()
+                    .await()
+                val statuses = snapshot.documents.mapNotNull { it.getString("status") }
+                if (statuses.isEmpty()) return@launch
+                val aggregate = when {
+                    statuses.any { it == "CANCELLED" } -> "CANCELLED"
+                    statuses.any { it == "PENDING" } -> "PENDING"
+                    statuses.any { it == "PREPARED" || it == "IN_TRANSIT" } -> "IN_TRANSIT"
+                    statuses.all { it == "DELIVERED" } -> "DELIVERED"
+                    else -> "PENDING"
+                }
+                FirebaseUtils.firestore
+                    .collection("orders")
+                    .document(orderId)
+                    .update("status", aggregate)
+                    .await()
+            } catch (_: Exception) {
+                // Ignore aggregation failure; consumer view will retry on next update
+            }
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        ordersListener?.remove()
     }
 }
 
-private fun Order.toFarmerOrder(productName: String?, customerName: String?): FarmerOrder {
-    val farmerStatus = when (status) {
-        OrderStatus.PENDING -> FarmerOrderStatus.PENDING
-        OrderStatus.PREPARED -> FarmerOrderStatus.PREPARED
-        OrderStatus.CONFIRMED -> FarmerOrderStatus.CONFIRMED
-        OrderStatus.DELIVERED -> FarmerOrderStatus.DELIVERED
-        OrderStatus.CANCELLED -> FarmerOrderStatus.CANCELLED
+private fun Timestamp.toRelativeTime(): String {
+    val diffMillis = System.currentTimeMillis() - this.toDate().time
+    val minutes = TimeUnit.MILLISECONDS.toMinutes(diffMillis)
+    return when {
+        minutes < 1 -> "Just now"
+        minutes < 60 -> "$minutes min ago"
+        minutes < 1440 -> "${TimeUnit.MINUTES.toHours(minutes)} hr ago"
+        else -> "${TimeUnit.MINUTES.toDays(minutes)} d ago"
     }
-    val iconRes = when (productName?.lowercase()) { // Assuming product name hints at category
-        "carrots", "vegetables" -> R.drawable.vegetable_icon
-        "milk" -> R.drawable.dairy_icon
-        "apples", "fruits" -> R.drawable.fruit_icon
-        "maize", "grains" -> R.drawable.grain_icon
+}
+
+private fun categoryToIcon(category: String): Int {
+    return when (category.lowercase()) {
+        "vegetables" -> R.drawable.vegetable_icon
+        "fruits" -> R.drawable.fruit_icon
+        "dairy" -> R.drawable.dairy_icon
+        "grains" -> R.drawable.grain_icon
         else -> R.drawable.ic_launcher_background
     }
-    return FarmerOrder(
-        id = id,
-        orderNumber = orderNumber,
-        productName = productName ?: "Unknown Product",
-        quantity = "$quantity kg", // Assuming kg for now
-        price = price,
-        customerName = customerName ?: "Unknown Customer",
-        rating = 4.5, // Placeholder
-        timeAgo = "2 hours ago", // Placeholder
-        status = farmerStatus,
-        iconRes = iconRes
-    )
 }

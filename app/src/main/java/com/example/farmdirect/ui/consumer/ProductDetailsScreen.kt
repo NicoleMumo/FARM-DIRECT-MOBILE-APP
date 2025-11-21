@@ -36,8 +36,12 @@ fun ProductDetailsScreen(
     onRemoveFromWishlist: (String) -> Unit = {},
     isInWishlist: Boolean = false
 ) {
-    var quantity by remember { mutableIntStateOf(1) }
+    var quantity by remember(product.id) {
+        mutableIntStateOf(if (product.stock > 0) 1 else 0)
+    }
     var isWishlisted by remember { mutableStateOf(isInWishlist) }
+    val isOutOfStock = product.stock <= 0
+    val unitLabel = product.unit.ifBlank { "unit" }
     
     Column(
         modifier = Modifier
@@ -157,7 +161,7 @@ fun ProductDetailsScreen(
                             modifier = Modifier.padding(top = 4.dp)
                         )
                         Text(
-                            text = "per kg",
+                            text = "per $unitLabel",
                             fontSize = 14.sp,
                             color = Color.Gray
                         )
@@ -193,12 +197,31 @@ fun ProductDetailsScreen(
                             color = Color(0xFF2E7D32)
                         )
                         Text(
-                            text = "Fresh, organic ${product.name.lowercase()} grown without pesticides. Perfect for cooking and healthy meals.",
+                            text = product.description.ifBlank {
+                                "Fresh, organic ${product.name.lowercase()} sourced directly from ${product.farmName}."
+                            },
                             fontSize = 14.sp,
                             color = Color.Gray,
                             lineHeight = 20.sp
                         )
                     }
+                }
+                
+                // Key facts
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    ProductFactChip(
+                        label = "In stock",
+                        value = "${product.stock} $unitLabel",
+                        modifier = Modifier.weight(1f)
+                    )
+                    ProductFactChip(
+                        label = "Category",
+                        value = product.category,
+                        modifier = Modifier.weight(1f)
+                    )
                 }
                 
                 // Seller Information
@@ -242,12 +265,12 @@ fun ProductDetailsScreen(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.LocationOn,
-                                        contentDescription = "Location",
+                                        contentDescription = "Category",
                                         modifier = Modifier.size(14.dp),
                                         tint = Color.Gray
                                     )
                                     Text(
-                                        text = "Nakuru County",
+                                        text = product.category,
                                         fontSize = 12.sp,
                                         color = Color.Gray
                                     )
@@ -344,25 +367,37 @@ fun ProductDetailsScreen(
                             color = Color.Black
                         )
                         Text(
-                            text = "kg",
+                            text = unitLabel,
                             fontSize = 14.sp,
                             color = Color.Gray
                         )
                     }
                     IconButton(
-                        onClick = { quantity++ },
+                        onClick = { if (quantity < product.stock) quantity++ },
                         modifier = Modifier
                             .size(40.dp)
-                            .background(Color(0xFF4CAF50), CircleShape)
+                            .background(
+                                if (quantity >= product.stock) Color.Gray.copy(alpha = 0.3f) else Color(
+                                    0xFF4CAF50
+                                ),
+                                CircleShape
+                            ),
+                        enabled = quantity < product.stock
                     ) {
                         Text(
                             text = "+",
                             fontSize = 24.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = if (quantity >= product.stock) Color.Gray else Color.White
                         )
                     }
                 }
+                Text(
+                    text = if (isOutOfStock) "Currently unavailable" else "Only ${product.stock} $unitLabel left",
+                    fontSize = 13.sp,
+                    color = if (isOutOfStock) Color(0xFFE53935) else Color(0xFF4CAF50),
+                    fontWeight = FontWeight.Medium
+                )
             }
         }
         
@@ -384,9 +419,10 @@ fun ProductDetailsScreen(
                 ) {
                     Button(
                         onClick = { onAddToCart(product.id, quantity) },
+                        enabled = !isOutOfStock && quantity > 0,
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFFF9800)
+                            containerColor = if (isOutOfStock) Color.Gray else Color(0xFFFF9800)
                         ),
                         shape = RoundedCornerShape(12.dp)
                     ) {
@@ -437,6 +473,38 @@ fun ProductDetailsScreen(
                     textAlign = TextAlign.Center
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun ProductFactChip(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF7F9FA))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp, horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = label,
+                fontSize = 12.sp,
+                color = Color.Gray
+            )
+            Text(
+                text = value,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF2E7D32)
+            )
         }
     }
 }

@@ -40,7 +40,8 @@ fun OrdersRoute(
         filteredOrders = filteredOrders,
         onFilterSelected = viewModel::selectFilter,
         onRefresh = viewModel::refresh,
-        onViewDetails = { /* TODO: Navigate to order details */ }
+        onViewDetails = { /* TODO: Navigate to order details */ },
+        onStatusChange = viewModel::updateOrderStatus
     )
 }
 
@@ -50,7 +51,8 @@ fun OrdersScreen(
     filteredOrders: List<FarmerOrder>,
     onFilterSelected: (FarmerOrderStatus?) -> Unit,
     onRefresh: () -> Unit,
-    onViewDetails: (String) -> Unit
+    onViewDetails: (String) -> Unit,
+    onStatusChange: (FarmerOrder, FarmerOrderStatus) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -134,7 +136,8 @@ fun OrdersScreen(
                 items(filteredOrders) { order ->
                     OrderItemCard(
                         order = order,
-                        onViewDetails = { onViewDetails(order.id) }
+                        onViewDetails = { onViewDetails(order.orderId) },
+                        onStatusChange = onStatusChange
                     )
                 }
             }
@@ -187,7 +190,8 @@ fun OrderSummaryCard(
 @Composable
 fun OrderItemCard(
     order: FarmerOrder,
-    onViewDetails: () -> Unit
+    onViewDetails: () -> Unit,
+    onStatusChange: (FarmerOrder, FarmerOrderStatus) -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -309,6 +313,49 @@ fun OrderItemCard(
                     }
                 }
             }
+
+            FarmerOrderActions(
+                status = order.status,
+                onMarkPrepared = { onStatusChange(order, FarmerOrderStatus.PREPARED) },
+                onMarkDelivered = { onStatusChange(order, FarmerOrderStatus.DELIVERED) }
+            )
+        }
+    }
+}
+
+@Composable
+fun FarmerOrderActions(
+    status: FarmerOrderStatus,
+    onMarkPrepared: () -> Unit,
+    onMarkDelivered: () -> Unit
+) {
+    when (status) {
+        FarmerOrderStatus.PENDING -> {
+            Button(
+                onClick = onMarkPrepared,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFC107)),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Text("Mark as Prepared", color = Color.White)
+            }
+        }
+        FarmerOrderStatus.PREPARED -> {
+            Button(
+                onClick = onMarkDelivered,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Text("Mark as Delivered", color = Color.White)
+            }
+        }
+        else -> {
+            Text(
+                text = "Status updated",
+                fontSize = 12.sp,
+                color = Color.Gray
+            )
         }
     }
 }

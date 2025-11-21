@@ -190,7 +190,7 @@ fun ProductCard(
                     color = Color(0xFF2E7D32)
                 )
                 Text(
-                    text = "Stock: ${product.stock.toInt()}${product.unit}",
+                    text = "Stock: ${product.stock}${product.unit}",
                     fontSize = 12.sp,
                     color = if (product.status == ProductStatus.OUT_OF_STOCK || product.status == ProductStatus.LOW_STOCK)
                         Color(0xFFE53935) else Color.Gray

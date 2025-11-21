@@ -129,8 +129,8 @@ fun AddProductScreen(
                         name = productName,
                         description = description,
                         price = price.toDoubleOrNull() ?: 0.0,
-                        unit = unit,
-                        stock = stock.toDoubleOrNull() ?: 0.0,
+                        unit = unit.ifBlank { "kg" },
+                        stock = stock.toIntOrNull() ?: 0,
                         category = category
                     )
                     onAddProduct(product)
