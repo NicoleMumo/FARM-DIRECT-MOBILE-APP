@@ -3,14 +3,16 @@ package com.example.farmdirect.ui.consumer
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.farmdirect.utils.FirebaseUtils
-import com.google.firebase.firestore.ListenerRegistration
-import com.google.firebase.firestore.Query
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.ValueEventListener
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 
 data class OrdersUiState(
@@ -25,8 +27,10 @@ class OrdersViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(OrdersUiState())
     val uiState: StateFlow<OrdersUiState> = _uiState.asStateFlow()
     
-    private val userId = FirebaseUtils.auth.currentUser?.uid ?: ""
-    private var ordersListener: ListenerRegistration? = null
+    private var ordersListener: ValueEventListener? = null
+    private val database = FirebaseUtils.database
+    
+    private fun currentUserId(): String? = FirebaseUtils.auth.currentUser?.uid
     
     init {
         observeOrders()
@@ -37,7 +41,8 @@ class OrdersViewModel : ViewModel() {
     }
     
     private fun observeOrders() {
-        if (userId.isBlank()) {
+        val userId = currentUserId()
+        if (userId.isNullOrBlank()) {
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
                 errorMessage = "Please log in to view orders"
@@ -45,21 +50,22 @@ class OrdersViewModel : ViewModel() {
             return
         }
         _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
-        ordersListener?.remove()
-        ordersListener = FirebaseUtils.firestore
-            .collection("orders")
-            .whereEqualTo("userId", userId)
-            .orderBy("createdAt", Query.Direction.DESCENDING)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        errorMessage = error.message ?: "Failed to load orders"
-                    )
-                    return@addSnapshotListener
-                }
-                val orders = snapshot?.documents?.map { document ->
-                    val statusString = document.getString("status") ?: "PENDING"
+        
+        // Remove previous listener
+        ordersListener?.let {
+            database.reference.child("orders").child(userId).removeEventListener(it)
+        }
+        
+        // Listen to Realtime Database for instant updates
+        ordersListener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val orders = mutableListOf<Order>()
+                
+                snapshot.children.forEach { orderSnapshot ->
+                    val orderData = orderSnapshot.value as? Map<*, *> ?: return@forEach
+                    val orderId = orderSnapshot.key ?: return@forEach
+                    
+                    val statusString = (orderData["status"] as? String) ?: "PENDING"
                     val status = when (statusString.uppercase(Locale.getDefault())) {
                         "PENDING" -> OrderStatus.PENDING
                         "PREPARED" -> OrderStatus.IN_TRANSIT
@@ -68,35 +74,57 @@ class OrdersViewModel : ViewModel() {
                         "CANCELLED" -> OrderStatus.CANCELLED
                         else -> OrderStatus.PENDING
                     }
-                    val timestamp = document.getTimestamp("createdAt")
-                    val dateString = timestamp?.let {
-                        SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(it.toDate())
-                    } ?: "Pending"
-                    Order(
-                        id = document.id,
-                        orderNumber = document.getString("orderNumber") ?: "Order #FD${document.id.takeLast(7)}",
-                        productName = document.getString("primaryProductName")
-                            ?: document.getString("items")
-                            ?: "Multiple items",
-                        supplier = document.getString("farmerName") ?: "Partner Farmer",
-                        orderDate = dateString,
-                        price = document.getDouble("totalAmount") ?: 0.0,
-                        status = status
+                    
+                    val createdAt = (orderData["createdAt"] as? Long) ?: System.currentTimeMillis()
+                    val dateString = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(createdAt))
+                    
+                    orders.add(
+                        Order(
+                            id = orderId,
+                            orderNumber = (orderData["orderNumber"] as? String) ?: "Order #FD${orderId.takeLast(7)}",
+                            productName = (orderData["primaryProductName"] as? String)
+                                ?: (orderData["items"] as? String)
+                                ?: "Multiple items",
+                            supplier = (orderData["farmerName"] as? String) ?: "Partner Farmer",
+                            orderDate = dateString,
+                            price = ((orderData["totalAmount"] as? Number)?.toDouble()) ?: 0.0,
+                            status = status
+                        )
                     )
-                }.orEmpty()
+                }
+                
+                // Sort by creation time (newest first)
+                val sortedOrders = orders.sortedByDescending { order ->
+                    snapshot.child(order.id).child("createdAt").getValue(Long::class.java) ?: 0L
+                }
                 
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    orders = orders,
-                    filteredOrders = orders
+                    orders = sortedOrders,
+                    filteredOrders = sortedOrders
                 )
                 applyFilter(_uiState.value.selectedFilter)
             }
+            
+            override fun onCancelled(error: DatabaseError) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    errorMessage = error.message ?: "Failed to load orders"
+                )
+            }
+        }
+        
+        database.reference.child("orders").child(userId).addValueEventListener(ordersListener!!)
     }
     
     override fun onCleared() {
         super.onCleared()
-        ordersListener?.remove()
+        val userId = currentUserId()
+        ordersListener?.let {
+            if (userId != null) {
+                database.reference.child("orders").child(userId).removeEventListener(it)
+            }
+        }
     }
     
     fun selectFilter(filter: String?) {
@@ -124,7 +152,8 @@ class OrdersViewModel : ViewModel() {
     fun reorder(orderId: String) {
         viewModelScope.launch {
             try {
-                if (userId.isBlank()) {
+                val userId = currentUserId()
+                if (userId.isNullOrBlank()) {
                     _uiState.value = _uiState.value.copy(
                         errorMessage = "Please log in to reorder items"
                     )

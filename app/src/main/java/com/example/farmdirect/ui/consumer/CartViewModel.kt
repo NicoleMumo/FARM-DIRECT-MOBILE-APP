@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.farmdirect.model.Product
 import com.example.farmdirect.utils.FirebaseUtils
 import com.google.firebase.Timestamp
+import com.google.firebase.database.DatabaseReference
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,6 +42,7 @@ class CartViewModel : ViewModel() {
     
     private val firestore = FirebaseUtils.firestore
     private val auth = FirebaseUtils.auth
+    private val database = FirebaseUtils.database // Realtime Database for orders
     
     init {
         fetchCart()
@@ -336,7 +338,30 @@ class CartViewModel : ViewModel() {
                 )
                 
                 val orderRef = firestore.collection("orders").document()
+                val orderId = orderRef.id
                 orderRef.set(orderData).await()
+                
+                // Also write to Realtime Database for instant visibility
+                val realtimeOrderData = hashMapOf<String, Any>(
+                    "userId" to userId,
+                    "status" to "PENDING",
+                    "orderNumber" to orderNumber,
+                    "totalAmount" to totalAmount,
+                    "paymentMethod" to paymentMethod,
+                    "consumerName" to customerName,
+                    "consumerEmail" to customerEmail,
+                    "farmerName" to farmerSummary,
+                    "items" to itemsSummary,
+                    "primaryProductId" to primaryItem.productId,
+                    "primaryProductName" to primaryItem.name,
+                    "shippingAddress" to mapOf(
+                        "label" to shippingAddress.label,
+                        "location" to shippingAddress.location,
+                        "details" to shippingAddress.details
+                    ),
+                    "createdAt" to System.currentTimeMillis()
+                )
+                database.reference.child("orders").child(userId).child(orderId).setValue(realtimeOrderData)
                 
                 val fulfillmentEntries = mutableListOf<Map<String, Any>>()
                 val farmerIds = mutableSetOf<String>()
@@ -408,11 +433,15 @@ class CartViewModel : ViewModel() {
                     "fulfillments", fulfillmentEntries
                 ).await()
                 
+                // Update Realtime Database with fulfillment info
+                database.reference.child("orders").child(userId).child(orderId).child("farmerIds").setValue(farmerIds.toList())
+                database.reference.child("orders").child(userId).child(orderId).child("fulfillments").setValue(fulfillmentEntries)
+                
                 _uiState.value = _uiState.value.copy(
                     showPaymentPrompt = true,
                     paymentPromptMessage = "A push STK has been sent to your phone. Please wait two minutes before trying again in case of delay."
                 )
-                simulatePayment(orderRef.id, currentItems, orderNumber, totalAmount, cartIds)
+                simulatePayment(orderId, currentItems, orderNumber, totalAmount, cartIds)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     errorMessage = e.message ?: "Failed to checkout"
@@ -451,6 +480,7 @@ class CartViewModel : ViewModel() {
                     checkoutMessage = "Awaiting payment confirmation..."
                 )
                 delay(2500)
+                val userId = currentUserId() ?: return@launch
                 val orderRef = firestore.collection("orders").document(orderId)
                 val batch = firestore.batch()
                 batch.update(orderRef, mapOf(
@@ -458,6 +488,11 @@ class CartViewModel : ViewModel() {
                     "paymentReference" to "PESAPAL-${System.currentTimeMillis()}",
                     "paymentCapturedAt" to Timestamp.now()
                 ))
+                
+                // Update Realtime Database with payment status
+                database.reference.child("orders").child(userId).child(orderId).child("paymentStatus").setValue("PAID")
+                database.reference.child("orders").child(userId).child(orderId).child("paymentReference").setValue("PESAPAL-${System.currentTimeMillis()}")
+                database.reference.child("orders").child(userId).child(orderId).child("status").setValue("PENDING") // Keep as PENDING until delivered
                 
                 items.forEach { item ->
                     val productRef = firestore.collection("products").document(item.productId)
