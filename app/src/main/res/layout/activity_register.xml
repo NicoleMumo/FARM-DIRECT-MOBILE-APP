@@ -63,5 +63,13 @@
             android:text="Register"
             android:layout_marginTop="16dp"
             android:backgroundTint="#2E9B3F"/>
+
+        <TextView
+            android:id="@+id/tvLogin"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Already have an account? Log in"
+            android:textColor="#2196F3"
+            android:layout_marginTop="14dp" />
     </LinearLayout>
 </ScrollView>

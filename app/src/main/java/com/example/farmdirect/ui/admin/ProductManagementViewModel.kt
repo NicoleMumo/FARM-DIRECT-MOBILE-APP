@@ -34,7 +34,7 @@ class ProductManagementViewModel : ViewModel() {
             .addOnSuccessListener { result ->
                 val products = result.documents.mapNotNull { doc ->
                     val name = doc.getString("name") ?: "Unknown Product"
-                    val seller = doc.getString("sellerName") ?: "Unknown Seller"
+                    val seller = doc.getString("farmerName") ?: doc.getString("sellerName") ?: "Unknown Seller"
                     val price = doc.getDouble("price") ?: 0.0
                     val unit = doc.getString("unit") ?: "kg"
                     val category = doc.getString("category") ?: "Vegetables"

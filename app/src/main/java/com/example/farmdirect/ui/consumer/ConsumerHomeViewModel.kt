@@ -29,7 +29,7 @@ class ConsumerHomeViewModel : ViewModel() {
     }
 
     fun observeProducts() {
-        _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
         productsListener?.remove()
         productsListener = FirebaseUtils.firestore.collection("products")
             .addSnapshotListener { snapshot, error ->
@@ -46,19 +46,19 @@ class ConsumerHomeViewModel : ViewModel() {
                         if (it.stock <= 0) {
                             null
                         } else {
-                            ProductUi(
-                                id = document.id,
-                                name = it.name,
-                                price = it.price,
+                        ProductUi(
+                            id = document.id,
+                            name = it.name,
+                            price = it.price,
                                 farmName = it.farmerName.ifBlank { "Partner Farm" },
                                 category = it.category.ifBlank { "Vegetables" },
                                 imageUrl = it.imageUrl,
                                 unit = it.unit.ifBlank { "kg" },
                                 stock = it.stock,
                                 description = it.description
-                            )
-                        }
+                        )
                     }
+                }
                 }.orEmpty()
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
@@ -70,7 +70,7 @@ class ConsumerHomeViewModel : ViewModel() {
                     _uiState.value.selectedCategory,
                     products
                 )
-            }
+        }
     }
 
     fun onSearchChanged(query: String) {

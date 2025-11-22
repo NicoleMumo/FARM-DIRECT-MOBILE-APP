@@ -22,7 +22,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Search
@@ -50,7 +49,7 @@ fun UserManagementRoute(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     
-    // Compute filtered users reactively
+    // Compute filtered users reactively - exclude admins
     val filteredUsers = remember(
         uiState.searchQuery,
         uiState.users,
@@ -59,6 +58,8 @@ fun UserManagementRoute(
     ) {
         val query = uiState.searchQuery.lowercase()
         uiState.users.filter { user ->
+            // Exclude admins from the list
+            val isNotAdmin = !user.role.equals("admin", ignoreCase = true)
             val matchesQuery = query.isBlank() ||
                 user.name.lowercase().contains(query) ||
                 user.email.lowercase().contains(query) ||
@@ -67,7 +68,7 @@ fun UserManagementRoute(
                 user.role.equals(uiState.selectedRoleFilter, ignoreCase = true)
             val matchesStatus = uiState.selectedStatusFilter == null ||
                 user.status == uiState.selectedStatusFilter
-            matchesQuery && matchesRole && matchesStatus
+            isNotAdmin && matchesQuery && matchesRole && matchesStatus
         }
     }
     
@@ -99,7 +100,7 @@ fun UserManagementScreen(
     ) {
         // Header
         AdminHeader(
-            title = "FarmDirect"
+            title = "User Management"
         )
         uiState.errorMessage?.let {
             ErrorMessageCard(
@@ -115,80 +116,33 @@ fun UserManagementScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Title and Add User Button
+            // Statistics Cards - All in one row
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text(
-                        text = "User Management",
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF2E7D32)
+                    StatCard(
+                        value = uiState.totalUsers.toString(),
+                        label = "Total Users",
+                        bgColor = Color(0xFFFFF9C4),
+                        textColor = Color(0xFFFF9800),
+                        modifier = Modifier.weight(1f)
                     )
-                    Button(
-                        onClick = { /* Add User */ },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF4CAF50)
-                        ),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = "Add",
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Add User")
-                    }
-                }
-            }
-            
-            // Statistics Cards
-            item {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        StatCard(
-                            value = uiState.totalUsers.toString(),
-                            label = "Total Users",
-                            bgColor = Color(0xFFFFF9C4),
-                            textColor = Color(0xFFFF9800),
-                            modifier = Modifier.weight(1f)
-                        )
-                        StatCard(
-                            value = uiState.farmers.toString(),
-                            label = "Farmers",
-                            bgColor = Color(0xFFE8F5E9),
-                            textColor = Color(0xFF4CAF50),
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        StatCard(
-                            value = uiState.consumers.toString(),
-                            label = "Consumers",
-                            bgColor = Color(0xFFE3F2FD),
-                            textColor = Color(0xFF2196F3),
-                            modifier = Modifier.weight(1f)
-                        )
-                        StatCard(
-                            value = uiState.admins.toString(),
-                            label = "Admins",
-                            bgColor = Color(0xFFFFEBEE),
-                            textColor = Color(0xFFE53935),
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
+                    StatCard(
+                        value = uiState.farmers.toString(),
+                        label = "Farmers",
+                        bgColor = Color(0xFFE8F5E9),
+                        textColor = Color(0xFF4CAF50),
+                        modifier = Modifier.weight(1f)
+                    )
+                    StatCard(
+                        value = uiState.consumers.toString(),
+                        label = "Consumers",
+                        bgColor = Color(0xFFE3F2FD),
+                        textColor = Color(0xFF2196F3),
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
             
@@ -436,8 +390,7 @@ fun RoleFilterRow(
     val roles = listOf(
         "All" to null,
         "Farmers" to "farmer",
-        "Consumers" to "consumer",
-        "Admins" to "admin"
+        "Consumers" to "consumer"
     )
     Row(
         modifier = Modifier.fillMaxWidth(),

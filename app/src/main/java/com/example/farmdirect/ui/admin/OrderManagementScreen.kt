@@ -173,29 +173,33 @@ fun OrderSummaryCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
                 Text(
                     text = title,
                     fontSize = 14.sp,
-                    color = Color(0xFF2E7D32)
+                    color = Color(0xFF2E7D32),
+                    maxLines = 1
                 )
                 Text(
                     text = value,
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (title == "Pending") Color(0xFFFF9800) else Color(0xFF2E7D32)
+                    color = if (title == "Pending") Color(0xFFFF9800) else Color(0xFF2E7D32),
+                    maxLines = 1
                 )
             }
             Box(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(56.dp)
                     .background(iconBgColor, RoundedCornerShape(8.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Image(
                     painter = painterResource(id = iconRes),
                     contentDescription = title,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(36.dp)
                 )
             }
         }

@@ -197,6 +197,37 @@ fun ProfileScreen(
                     onClick = { onMenuItemClick(item) }
                 )
             }
+            
+            // Logout Button
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = { 
+                        uiState.accountMenuItems.find { it.id == "logout" }?.let { 
+                            onMenuItemClick(it) 
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935)),
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(vertical = 16.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ExitToApp,
+                        contentDescription = null,
+                        tint = Color.White
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Logout",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
+                }
+            }
         }
     }
 }

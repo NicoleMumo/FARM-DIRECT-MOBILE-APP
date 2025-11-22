@@ -267,7 +267,7 @@ fun TopAppBar(
                 Image(
                     painter = painterResource(id = R.drawable.ic_seed),
                     contentDescription = "FarmDirect Logo",
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(48.dp)
                 )
                 Text(
                     text = "FarmDirect",

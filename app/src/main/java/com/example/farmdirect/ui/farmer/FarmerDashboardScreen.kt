@@ -89,6 +89,8 @@ fun FarmerDashboardScreen(
     onAddProduct: () -> Unit,
     onViewAnalytics: () -> Unit
 ) {
+    var selectedChart by remember { mutableStateOf<String?>(null) }
+    
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -115,7 +117,8 @@ fun FarmerDashboardScreen(
                         value = uiState.totalSales,
                         growth = uiState.salesGrowth,
                         iconRes = R.drawable.ic_seed,
-                        iconColor = Color(0xFFFFC107)
+                        iconColor = Color(0xFFFFC107),
+                        onClick = { selectedChart = "sales" }
                     )
 
                     // Pending Orders Card
@@ -125,8 +128,9 @@ fun FarmerDashboardScreen(
                         value = uiState.pendingOrders.toString(),
                         newCount = "${uiState.newPendingOrders} new",
                         iconRes = R.drawable.ic_seed,
-                        iconColor = Color(0xFF4CAF50),
-                        newCountColor = Color(0xFFE53935)
+                        iconColor = Color(0xFFFFC107),
+                        newCountColor = Color(0xFFE53935),
+                        onClick = { selectedChart = "pending" }
                     )
                 }
             }
@@ -200,6 +204,114 @@ fun FarmerDashboardScreen(
             }
         }
     }
+    
+    // Chart Dialog
+    selectedChart?.let { chartType ->
+        FarmerChartDialog(
+            chartType = chartType,
+            uiState = uiState,
+            onDismiss = { selectedChart = null }
+        )
+    }
+}
+
+@Composable
+fun FarmerChartDialog(
+    chartType: String,
+    uiState: FarmerDashboardUiState,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = when (chartType) {
+                    "sales" -> "Total Sales Trend"
+                    "pending" -> "Pending Orders Trend"
+                    else -> "Chart"
+                },
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF2E7D32)
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(300.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Use real historical data from ViewModel
+                val dataPoints = when (chartType) {
+                    "sales" -> uiState.salesHistory
+                    "pending" -> uiState.pendingHistory
+                    else -> emptyList()
+                }
+                
+                if (dataPoints.isNotEmpty()) {
+                    val maxValue = dataPoints.maxOfOrNull { it.second } ?: 1.0
+                    
+                    // Chart area
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(220.dp)
+                    ) {
+                        // Y-axis labels
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("0", fontSize = 10.sp, color = Color.Gray)
+                            Text(
+                                if (chartType == "sales") "Ksh ${String.format("%.0f", maxValue)}"
+                                else maxValue.toInt().toString(),
+                                fontSize = 10.sp,
+                                color = Color.Gray
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        // Bars
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.Bottom
+                        ) {
+                            dataPoints.forEach { (label, value) ->
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    val barHeight = ((value / maxValue) * 180).dp.coerceAtLeast(8.dp)
+                                    Box(
+                                        modifier = Modifier
+                                            .width(40.dp)
+                                            .height(barHeight)
+                                            .background(Color(0xFFFFB300), RoundedCornerShape(4.dp))
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = label,
+                                        fontSize = 10.sp,
+                                        color = Color.Gray
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close", color = Color(0xFF2E7D32))
+            }
+        }
+    )
 }
 
 @Composable
@@ -229,18 +341,11 @@ fun FarmerHeader(title: String, onUpClick: (() -> Unit)? = null) {
                         )
                     }
                 } else {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .background(Color(0xFFFFC107), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.ic_seed),
-                            contentDescription = "Logo",
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_seed),
+                        contentDescription = "Logo",
+                        modifier = Modifier.size(48.dp)
+                    )
                 }
                 Text(
                     text = title,
@@ -269,10 +374,11 @@ fun MetricCard(
     newCount: String? = null,
     iconRes: Int,
     iconColor: Color,
-    newCountColor: Color = Color(0xFF4CAF50)
+    newCountColor: Color = Color(0xFF4CAF50),
+    onClick: () -> Unit = {}
 ) {
     Card(
-        modifier = modifier,
+        modifier = modifier.clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5)),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -286,19 +392,12 @@ fun MetricCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    repeat(if (title == "Total Sales") 3 else 1) {
-                        Icon(
-                            painter = painterResource(id = iconRes),
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp),
-                            tint = iconColor
-                        )
-                    }
-                }
+                Icon(
+                    painter = painterResource(id = iconRes),
+                    contentDescription = null,
+                    modifier = Modifier.size(40.dp),
+                    tint = iconColor
+                )
                 if (growth != null) {
                     Text(
                         text = growth,
@@ -509,7 +608,7 @@ fun FarmerBottomNavigationBar(
                     contentDescription = "Dashboard"
                 )
             },
-            label = { Text("Dashboard") },
+            label = { Text("Home") },
             selected = selectedItem == "Dashboard",
             onClick = { onItemSelected("Dashboard") },
             colors = NavigationBarItemDefaults.colors(

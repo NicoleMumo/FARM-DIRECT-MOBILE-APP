@@ -27,12 +27,14 @@ data class FarmerOrder(
     val orderNumber: String,
     val productName: String,
     val quantity: String, // e.g., "5kg"
+    val quantityValue: Int = 0, // Numeric quantity for calculations
     val price: Double,
     val customerName: String,
     val rating: Double? = null,
     val timeAgo: String,
     val status: FarmerOrderStatus,
-    val iconRes: Int
+    val iconRes: Int,
+    val createdAt: Long = System.currentTimeMillis() // Timestamp for calculations
 )
 
 enum class FarmerOrderStatus {
@@ -70,5 +72,10 @@ data class BestSellingProduct(
 data class RevenueData(
     val week: String,
     val revenue: Double
+)
+
+data class DailySale(
+    val day: String,
+    val sales: Double
 )
 

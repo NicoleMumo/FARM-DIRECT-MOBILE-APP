@@ -21,6 +21,12 @@ class RegisterActivity : AppCompatActivity() {
         binding.btnRegister.setOnClickListener {
             registerUser()
         }
+
+        // Listener for the "Already have an account? Log in" text
+        binding.tvLogin.setOnClickListener {
+            startActivity(Intent(this, LoginActivity::class.java))
+            finish()
+        }
     }
 
     private fun registerUser() {

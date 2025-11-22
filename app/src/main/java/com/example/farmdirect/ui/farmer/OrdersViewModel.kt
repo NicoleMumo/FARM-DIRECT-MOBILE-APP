@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.util.concurrent.TimeUnit
+import java.util.TimeZone
 
 data class OrdersUiState(
     val pendingCount: Int = 0,
@@ -75,11 +76,13 @@ class OrdersViewModel : ViewModel() {
                         orderNumber = document.getString("orderNumber") ?: "Order",
                         productName = document.getString("productName") ?: "Produce",
                         quantity = "$quantity $unit",
+                        quantityValue = quantity,
                         price = document.getDouble("price") ?: 0.0,
                         customerName = document.getString("consumerName") ?: "Customer",
                         timeAgo = createdAt?.let { it.toRelativeTime() } ?: "Just now",
                         status = status,
-                        iconRes = categoryToIcon(category)
+                        iconRes = categoryToIcon(category),
+                        createdAt = createdAt?.toDate()?.time ?: System.currentTimeMillis()
                     )
                 }.orEmpty()
 
@@ -111,7 +114,28 @@ class OrdersViewModel : ViewModel() {
     }
 
     fun updateOrderStatus(order: FarmerOrder, newStatus: FarmerOrderStatus) {
-        if (order.orderId.isBlank()) return
+        if (order.id.isBlank()) {
+            _uiState.value = _uiState.value.copy(
+                errorMessage = "Invalid order ID"
+            )
+            return
+        }
+        
+        // Optimistic UI update - update immediately for instant feedback
+        val currentOrders = _uiState.value.orders.toMutableList()
+        val orderIndex = currentOrders.indexOfFirst { it.id == order.id }
+        if (orderIndex != -1) {
+            val updatedOrder = order.copy(status = newStatus)
+            currentOrders[orderIndex] = updatedOrder
+            _uiState.value = _uiState.value.copy(
+                orders = currentOrders,
+                pendingCount = currentOrders.count { it.status == FarmerOrderStatus.PENDING },
+                preparedCount = currentOrders.count { it.status == FarmerOrderStatus.PREPARED },
+                deliveredCount = currentOrders.count { it.status == FarmerOrderStatus.DELIVERED },
+                errorMessage = null
+            )
+        }
+        
         viewModelScope.launch {
             try {
                 val statusString = when (newStatus) {
@@ -122,6 +146,8 @@ class OrdersViewModel : ViewModel() {
                     FarmerOrderStatus.CANCELLED -> "CANCELLED"
                 }
                 val batch = FirebaseUtils.firestore.batch()
+                
+                // Update farmerOrder document
                 val farmerOrderRef = FirebaseUtils.firestore
                     .collection("farmerOrders")
                     .document(order.id)
@@ -133,7 +159,8 @@ class OrdersViewModel : ViewModel() {
                     )
                 )
 
-                if (order.orderItemId.isNotBlank()) {
+                // Update order item if orderItemId exists
+                if (order.orderItemId.isNotBlank() && order.orderId.isNotBlank()) {
                     val orderItemRef = FirebaseUtils.firestore
                         .collection("orders")
                         .document(order.orderId)
@@ -143,10 +170,17 @@ class OrdersViewModel : ViewModel() {
                 }
 
                 batch.commit().await()
-                recalculateConsumerOrderStatus(order.orderId)
+                
+                // Recalculate consumer order status
+                if (order.orderId.isNotBlank()) {
+                    recalculateConsumerOrderStatus(order.orderId)
+                }
+                // Note: The real-time listener will sync the final state from Firestore
             } catch (e: Exception) {
+                // Rollback optimistic update on error
+                observeOrders() // Refresh from Firestore to get correct state
                 _uiState.value = _uiState.value.copy(
-                    errorMessage = e.message ?: "Failed to update order"
+                    errorMessage = "Failed to update order: ${e.message}"
                 )
             }
         }
@@ -188,7 +222,11 @@ class OrdersViewModel : ViewModel() {
 }
 
 private fun Timestamp.toRelativeTime(): String {
-    val diffMillis = System.currentTimeMillis() - this.toDate().time
+    // Use Nairobi timezone for time calculations
+    val nairobiTimeZone = TimeZone.getTimeZone("Africa/Nairobi")
+    val now = java.util.Calendar.getInstance(nairobiTimeZone).timeInMillis
+    val orderTime = this.toDate().time
+    val diffMillis = now - orderTime
     val minutes = TimeUnit.MILLISECONDS.toMinutes(diffMillis)
     return when {
         minutes < 1 -> "Just now"

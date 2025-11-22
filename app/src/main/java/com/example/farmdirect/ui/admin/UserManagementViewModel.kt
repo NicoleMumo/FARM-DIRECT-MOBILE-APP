@@ -45,6 +45,10 @@ class UserManagementViewModel : ViewModel() {
 
                 val users = snapshot?.documents?.mapNotNull { doc ->
                     val role = doc.getString("role") ?: "consumer"
+                    // Exclude admins from the list
+                    if (role.equals("admin", ignoreCase = true)) {
+                        return@mapNotNull null
+                    }
                     val statusString = doc.getString("status") ?: "ACTIVE"
                     val status = runCatching { UserStatus.valueOf(statusString.uppercase()) }
                         .getOrElse { UserStatus.ACTIVE }

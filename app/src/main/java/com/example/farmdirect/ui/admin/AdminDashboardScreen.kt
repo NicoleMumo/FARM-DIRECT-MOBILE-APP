@@ -60,7 +60,8 @@ fun AdminDashboardRoute(
                     val uiState by dashboardViewModel.uiState.collectAsState()
                     AdminDashboardScreen(
                         uiState = uiState,
-                        onRefresh = dashboardViewModel::refresh
+                        onRefresh = dashboardViewModel::refresh,
+                        onViewAnalytics = { selectedBottomNavItem = "Analytics" }
                     )
                 }
                 "Users" -> {
@@ -71,6 +72,9 @@ fun AdminDashboardRoute(
                 }
                 "Products" -> {
                     ProductManagementRoute(viewModel = productManagementViewModel)
+                }
+                "Analytics" -> {
+                    AdminAnalyticsRoute(dashboardViewModel = dashboardViewModel)
                 }
                 "Profile" -> {
                     AdminProfileRoute(viewModel = profileViewModel)
@@ -83,8 +87,11 @@ fun AdminDashboardRoute(
 @Composable
 fun AdminDashboardScreen(
     uiState: AdminDashboardUiState,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    onViewAnalytics: () -> Unit
 ) {
+    var selectedChart by remember { mutableStateOf<String?>(null) }
+    
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -92,7 +99,7 @@ fun AdminDashboardScreen(
     ) {
         // Header
         AdminHeader(
-            title = "FarmDirect"
+            title = "Farm Direct Admin"
         )
         
         LazyColumn(
@@ -102,17 +109,32 @@ fun AdminDashboardScreen(
         ) {
             // Overview Section
             item {
-                Text(
-                    text = "Overview",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF2E7D32),
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Overview",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF2E7D32)
+                    )
+                    TextButton(onClick = onViewAnalytics) {
+                        Text(
+                            text = "View Analytics",
+                            color = Color(0xFF4CAF50),
+                            fontSize = 14.sp
+                        )
+                    }
+                }
             }
             
             item {
-                OverviewMetricsGrid(uiState = uiState)
+                OverviewMetricsGrid(
+                    uiState = uiState,
+                    onMetricClick = { chartType -> selectedChart = chartType }
+                )
             }
             
             // Recent Activity Section
@@ -143,6 +165,15 @@ fun AdminDashboardScreen(
             }
         }
     }
+    
+    // Show chart dialog when a metric is clicked
+    selectedChart?.let { chartType ->
+        MetricChartDialog(
+            chartType = chartType,
+            uiState = uiState,
+            onDismiss = { selectedChart = null }
+        )
+    }
 }
 
 @Composable
@@ -165,15 +196,18 @@ fun AdminHeader(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Logo - using a colored circle instead of shape drawable
+                // Logo - using a colored circle with icon
                 Box(
                     modifier = Modifier
-                        .size(32.dp)
+                        .size(48.dp)
                         .background(Color(0xFFF8B400), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    // You can add an icon or text here if needed
-                    // For now, just showing the colored circle
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_seed),
+                        contentDescription = "Logo",
+                        modifier = Modifier.size(32.dp)
+                    )
                 }
                 Text(
                     text = title,
@@ -182,19 +216,15 @@ fun AdminHeader(
                     color = Color.White
                 )
             }
-            
-            Icon(
-                imageVector = Icons.Default.Person,
-                contentDescription = "Profile",
-                tint = Color.White,
-                modifier = Modifier.size(24.dp)
-            )
         }
     }
 }
 
 @Composable
-fun OverviewMetricsGrid(uiState: AdminDashboardUiState) {
+fun OverviewMetricsGrid(
+    uiState: AdminDashboardUiState,
+    onMetricClick: (String) -> Unit
+) {
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -207,14 +237,16 @@ fun OverviewMetricsGrid(uiState: AdminDashboardUiState) {
                 value = uiState.totalUsers.toString(),
                 growth = "+12%",
                 iconRes = R.drawable.ic_seed,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                onClick = { onMetricClick("users") }
             )
             OverviewMetricCard(
                 title = "Total Orders",
                 value = uiState.totalOrders.toString(),
                 growth = "+8%",
                 iconRes = R.drawable.ic_seed,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                onClick = { onMetricClick("orders") }
             )
         }
         Row(
@@ -226,14 +258,16 @@ fun OverviewMetricsGrid(uiState: AdminDashboardUiState) {
                 value = uiState.revenue,
                 growth = "+15%",
                 iconRes = R.drawable.ic_seed,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                onClick = { onMetricClick("revenue") }
             )
             OverviewMetricCard(
                 title = "Active Farmers",
                 value = uiState.activeFarmers.toString(),
                 growth = "+5%",
                 iconRes = R.drawable.ic_seed,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                onClick = { onMetricClick("farmers") }
             )
         }
     }
@@ -245,10 +279,11 @@ fun OverviewMetricCard(
     value: String,
     growth: String,
     iconRes: Int,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit = {}
 ) {
     Card(
-        modifier = modifier,
+        modifier = modifier.clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -267,7 +302,7 @@ fun OverviewMetricCard(
                 Image(
                     painter = painterResource(id = iconRes),
                     contentDescription = title,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(48.dp)
                 )
                 Text(
                     text = growth,
@@ -289,6 +324,167 @@ fun OverviewMetricCard(
             )
         }
     }
+}
+
+@Composable
+fun MetricChartDialog(
+    chartType: String,
+    uiState: AdminDashboardUiState,
+    onDismiss: () -> Unit
+) {
+    var sortOrder by remember { mutableStateOf(false) }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = when (chartType) {
+                        "users" -> "Total Users Trend"
+                        "orders" -> "Total Orders Trend"
+                        "revenue" -> "Revenue Trend"
+                        "farmers" -> "Active Farmers Trend"
+                        else -> "Chart"
+                    },
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF2E7D32)
+                )
+                IconButton(onClick = { sortOrder = !sortOrder }) {
+                    Text(
+                        text = if (sortOrder) "↑" else "↓",
+                        fontSize = 20.sp,
+                        color = Color(0xFFFFB300),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(350.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Simple bar chart
+                val rawDataPoints = when (chartType) {
+                    "users" -> listOf(2500.0, 2600.0, 2700.0, uiState.totalUsers.toDouble())
+                    "orders" -> listOf(1000.0, 1100.0, 1200.0, uiState.totalOrders.toDouble())
+                    "revenue" -> listOf(40.0, 42.0, 45.0, uiState.revenue.replace("Ksh ", "").replace("K", "").toDoubleOrNull() ?: 47.2)
+                    "farmers" -> listOf(150.0, 165.0, 175.0, uiState.activeFarmers.toDouble())
+                    else -> emptyList<Double>()
+                }
+                
+                val labels = listOf("Week 1", "Week 2", "Week 3", "Current")
+                val dataWithLabels = rawDataPoints.mapIndexed { index, value ->
+                    Pair(labels[index], value)
+                }
+                
+                val dataPoints = if (sortOrder) {
+                    dataWithLabels.sortedByDescending { it.second }
+                } else {
+                    dataWithLabels
+                }
+                
+                if (dataPoints.isNotEmpty()) {
+                    val maxValue = dataPoints.maxOfOrNull { it.second } ?: 1.0
+                    
+                    // Chart area
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(220.dp)
+                    ) {
+                        // Y-axis labels
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("0", fontSize = 10.sp, color = Color.Gray)
+                            Text(
+                                if (chartType == "revenue") "Ksh ${String.format("%.1fK", maxValue)}"
+                                else maxValue.toInt().toString(),
+                                fontSize = 10.sp,
+                                color = Color.Gray
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        // Bars
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.Bottom
+                        ) {
+                            dataPoints.forEach { (label, value) ->
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Bottom,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    val barHeight = ((value / maxValue) * 180).dp.coerceAtLeast(8.dp)
+                                    val barColor = when {
+                                        value == dataPoints.maxOfOrNull { it.second } -> Color(0xFFFFB300) // Yellow for highest
+                                        value >= maxValue * 0.7 -> Color(0xFFFFC107) // Lighter yellow
+                                        else -> Color(0xFF4CAF50) // Green
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .width(50.dp)
+                                            .height(barHeight)
+                                            .background(barColor, RoundedCornerShape(4.dp))
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    
+                    // X-axis labels and values on same line
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        dataPoints.forEach { (label, value) ->
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(
+                                    text = label,
+                                    fontSize = 11.sp,
+                                    color = Color.Gray,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    text = if (chartType == "revenue") {
+                                        "Ksh ${String.format("%.1fK", value)}"
+                                    } else {
+                                        value.toInt().toString()
+                                    },
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF2E7D32)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close", color = Color(0xFF4CAF50))
+            }
+        },
+        containerColor = Color.White
+    )
 }
 
 @Composable
@@ -359,7 +555,7 @@ fun AdminBottomNavigationBar(
                     contentDescription = "Dashboard"
                 )
             },
-            label = { Text("Dashboard") },
+            label = { Text("Home") },
             selected = selectedItem == "Dashboard",
             onClick = { onItemSelected("Dashboard") },
             colors = NavigationBarItemDefaults.colors(
@@ -418,48 +614,29 @@ fun AdminBottomNavigationBar(
         )
         NavigationBarItem(
             icon = {
-                if (selectedItem == "Products") {
-                    Box(
-                        modifier = Modifier
-                            .size(24.dp)
-                            .background(
-                                color = Color(0xFF4CAF50),
-                                shape = RoundedCornerShape(4.dp)
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "P",
-                            color = Color.White,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .size(24.dp)
-                            .background(
-                                color = Color.Transparent,
-                                shape = RoundedCornerShape(4.dp)
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "P",
-                            color = Color.Gray,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Normal
-                        )
-                    }
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .background(
+                            color = if (selectedItem == "Analytics") Color(0xFFFFB300) else Color.Transparent,
+                            shape = RoundedCornerShape(4.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "A",
+                        color = if (selectedItem == "Analytics") Color.White else Color.Gray,
+                        fontSize = 14.sp,
+                        fontWeight = if (selectedItem == "Analytics") FontWeight.Bold else FontWeight.Normal
+                    )
                 }
             },
-            label = { Text("Products") },
-            selected = selectedItem == "Products",
-            onClick = { onItemSelected("Products") },
+            label = { Text("Analytics") },
+            selected = selectedItem == "Analytics",
+            onClick = { onItemSelected("Analytics") },
             colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = Color(0xFF4CAF50),
-                selectedTextColor = Color(0xFF4CAF50),
+                selectedIconColor = Color(0xFFFFB300),
+                selectedTextColor = Color(0xFFFFB300),
                 unselectedIconColor = Color.Gray,
                 unselectedTextColor = Color.Gray
             )
