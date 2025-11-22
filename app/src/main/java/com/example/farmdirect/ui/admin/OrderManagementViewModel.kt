@@ -65,7 +65,7 @@ class OrderManagementViewModel : ViewModel() {
                         amount = amount,
                         dateTime = dateTime,
                         status = status,
-                        iconRes = R.drawable.ic_seed
+                        iconRes = R.drawable.icons_admin
                     )
                 }.orEmpty()
 

@@ -92,11 +92,7 @@ fun FarmerProfileScreen(
                             .background(Color(0xFFE6F8EB), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.ic_seed),
-                            contentDescription = "Profile",
-                            modifier = Modifier.size(60.dp)
-                        )
+                        // Empty - no icon
                     }
                     
                     Text(

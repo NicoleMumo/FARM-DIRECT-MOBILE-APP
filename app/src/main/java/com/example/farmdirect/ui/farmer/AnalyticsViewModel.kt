@@ -142,25 +142,23 @@ class AnalyticsViewModel : ViewModel() {
         val now = calendar.timeInMillis
         val weeks = mutableListOf<RevenueData>()
         
-        for (i in 3 downTo 0) {
-            val weekStart = now - (i * 7 * 24 * 60 * 60 * 1000L)
-            val weekEnd = weekStart + (7 * 24 * 60 * 60 * 1000L)
-            
-            val weekRevenue = orders
-                .filter { it.createdAt >= weekStart && it.createdAt < weekEnd }
-                .sumOf { it.price * it.quantity }
-            
-            weeks.add(RevenueData("Week ${4 - i}", weekRevenue))
-        }
+        // We're in Week 1 - show all revenue in Week 1, Weeks 2-4 show 0
+        val week1Start = 0L // Start from beginning of time
+        val week1End = now
         
-        return weeks.ifEmpty {
-            listOf(
-                RevenueData("Week 1", 0.0),
-                RevenueData("Week 2", 0.0),
-                RevenueData("Week 3", 0.0),
-                RevenueData("Week 4", 0.0)
-            )
-        }
+        // Week 1: All revenue from start until now
+        val week1Revenue = orders
+            .filter { it.createdAt >= week1Start && it.createdAt <= week1End }
+            .sumOf { it.price * it.quantity }
+        
+        weeks.add(RevenueData("Week 1", week1Revenue))
+        
+        // Weeks 2-4: Empty (0) since we're still in Week 1
+        weeks.add(RevenueData("Week 2", 0.0))
+        weeks.add(RevenueData("Week 3", 0.0))
+        weeks.add(RevenueData("Week 4", 0.0))
+        
+        return weeks
     }
     
     private fun calculateBestSellingProducts(orders: List<OrderData>): List<BestSellingProduct> {

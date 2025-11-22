@@ -84,14 +84,14 @@ fun OrderManagementScreen(
                     OrderSummaryCard(
                         title = "Total Orders",
                         value = uiState.totalOrders.toString(),
-                        iconRes = R.drawable.ic_seed,
+                        iconRes = R.drawable.icons_admin,
                         iconBgColor = Color(0xFFE8F5E9),
                         modifier = Modifier.weight(1f)
                     )
                     OrderSummaryCard(
                         title = "Pending",
                         value = uiState.pendingOrders.toString(),
-                        iconRes = R.drawable.ic_seed,
+                        iconRes = R.drawable.icons_admin,
                         iconBgColor = Color(0xFFFFF9C4),
                         modifier = Modifier.weight(1f)
                     )

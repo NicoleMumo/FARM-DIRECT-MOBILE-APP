@@ -4,11 +4,9 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -57,12 +55,13 @@ fun ConsumerHomeRoute(
     var selectedBottomNavItem by remember { mutableStateOf("Home") }
     var selectedProduct by remember { mutableStateOf<ProductUi?>(null) }
     var selectedOrder by remember { mutableStateOf<Order?>(null) }
+    var showAllProducts by remember { mutableStateOf(false) }
     val cartUiState by cartViewModel.uiState.collectAsState()
     val cartItemCount = cartUiState.items.sumOf { it.quantity }
     
     Scaffold(
         bottomBar = {
-            if (selectedProduct == null && selectedOrder == null) {
+            if (selectedProduct == null && selectedOrder == null && !showAllProducts) {
                 BottomNavigationBar(
                     selectedItem = selectedBottomNavItem,
                     onItemSelected = { selectedBottomNavItem = it },
@@ -77,6 +76,20 @@ fun ConsumerHomeRoute(
                 .padding(paddingValues)
         ) {
             when {
+                showAllProducts -> {
+                    val uiState by homeViewModel.uiState.collectAsState()
+                    AllProductsScreen(
+                        products = uiState.products,
+                        onBack = { showAllProducts = false },
+                        onAddToCart = { productId ->
+                            cartViewModel.addToCart(productId)
+                        },
+                        onProductClick = { product ->
+                            selectedProduct = product
+                            showAllProducts = false
+                        }
+                    )
+                }
                 selectedProduct != null -> {
                     val wishlistState by wishlistViewModel.uiState.collectAsState()
                     val isInWishlist = wishlistState.items.any { it.productId == selectedProduct!!.id }
@@ -119,7 +132,8 @@ fun ConsumerHomeRoute(
                         },
                         onProductClick = { product ->
                             selectedProduct = product
-                        }
+                        },
+                        onViewAll = { showAllProducts = true }
                     )
                 }
                 selectedBottomNavItem == "Wishlist" -> {
@@ -159,7 +173,8 @@ fun ConsumerHomeScreen(
     onSearchChanged: (String) -> Unit,
     onCategoryClicked: (String?) -> Unit,
     onAddToCart: (String) -> Unit,
-    onProductClick: (ProductUi) -> Unit
+    onProductClick: (ProductUi) -> Unit,
+    onViewAll: () -> Unit = {}
 ) {
         Column(
             modifier = Modifier
@@ -219,7 +234,7 @@ fun ConsumerHomeScreen(
                         text = "View All",
                         fontSize = 14.sp,
                         color = Color(0xFF4CAF50),
-                        modifier = Modifier.clickable { /* TODO: Navigate to all products */ }
+                        modifier = Modifier.clickable { onViewAll() }
                     )
                 }
                 Spacer(modifier = Modifier.height(12.dp))
@@ -235,7 +250,8 @@ fun ConsumerHomeScreen(
                     ProductList(
                         products = uiState.filteredProducts,
                         onAddToCart = onAddToCart,
-                        onProductClick = onProductClick
+                        onProductClick = onProductClick,
+                        modifier = Modifier.weight(1f)
                     )
             }
         }
@@ -275,15 +291,6 @@ fun TopAppBar(
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF2E7D32)
                 )
-            }
-            
-            // Profile Icon
-                IconButton(onClick = { /* TODO: Profile */ }) {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = "Profile",
-                        tint = Color(0xFF2E7D32)
-                    )
             }
         }
     }
@@ -390,7 +397,8 @@ fun CategoryCard(
 fun ProductList(
     products: List<ProductUi>,
     onAddToCart: (String) -> Unit,
-    onProductClick: (ProductUi) -> Unit
+    onProductClick: (ProductUi) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     if (products.isEmpty()) {
         Box(
@@ -400,8 +408,11 @@ fun ProductList(
             Text("No products found", color = Color.Gray)
         }
     } else {
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = modifier.fillMaxWidth()
         ) {
             items(products) { product ->
                 ProductCard(
@@ -423,7 +434,7 @@ fun ProductCard(
     val isOutOfStock = product.stock <= 0
     Card(
         modifier = Modifier
-            .width(200.dp)
+            .fillMaxWidth()
             .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         shape = RoundedCornerShape(18.dp),
@@ -707,5 +718,80 @@ fun getDefaultCategories(): List<CategoryUi> {
             bgColor = Color(0xFFEAF3FF)
         )
     )
+}
+
+@Composable
+fun AllProductsScreen(
+    products: List<ProductUi>,
+    onBack: () -> Unit,
+    onAddToCart: (String) -> Unit,
+    onProductClick: (ProductUi) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF7F9FA))
+    ) {
+        // Header
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = Color.White,
+            shadowElevation = 2.dp
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color(0xFF2E7D32)
+                    )
+                }
+                Text(
+                    text = "All Products",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF2E7D32),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+        
+        // Products Grid
+        if (products.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "No products available",
+                    color = Color.Gray,
+                    fontSize = 16.sp
+                )
+            }
+        } else {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(products) { product ->
+                    ProductCard(
+                        product = product,
+                        onAddToCart = { onAddToCart(product.id) },
+                        onClick = { onProductClick(product) }
+                    )
+                }
+            }
+        }
+    }
 }
 

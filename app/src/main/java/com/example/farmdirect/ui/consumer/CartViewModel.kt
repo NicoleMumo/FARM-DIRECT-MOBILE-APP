@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.farmdirect.model.Product
 import com.example.farmdirect.utils.FirebaseUtils
+import com.example.farmdirect.utils.DistanceCalculator
 import com.google.firebase.Timestamp
 import com.google.firebase.database.DatabaseReference
 import com.google.firebase.firestore.FieldValue
@@ -27,13 +28,17 @@ data class CartUiState(
         id = "1",
         label = "Home",
         location = "Kilimani, Nairobi",
-        details = "Building 12, Apt 4B"
+        details = "Building 12, Apt 4B",
+        latitude = -1.2921,
+        longitude = 36.8219
     ),
     val errorMessage: String? = null,
     val checkoutStatus: CheckoutStatus = CheckoutStatus.IDLE,
     val checkoutMessage: String? = null,
     val showPaymentPrompt: Boolean = false,
-    val paymentPromptMessage: String? = null
+    val paymentPromptMessage: String? = null,
+    val showCardPaymentDialog: Boolean = false,
+    val showLocationDialog: Boolean = false
 )
 
 class CartViewModel : ViewModel() {
@@ -43,6 +48,13 @@ class CartViewModel : ViewModel() {
     private val firestore = FirebaseUtils.firestore
     private val auth = FirebaseUtils.auth
     private val database = FirebaseUtils.database // Realtime Database for orders
+    
+    // Store pending order info for card payment
+    private var _pendingOrderId: String? = null
+    private var _pendingOrderItems: List<CartItem> = emptyList()
+    private var _pendingOrderNumber: String = ""
+    private var _pendingTotalAmount: Double = 0.0
+    private var _pendingCartIds: List<String> = emptyList()
     
     init {
         fetchCart()
@@ -57,14 +69,14 @@ class CartViewModel : ViewModel() {
                 id = "mpesa",
                 name = "M-Pesa",
                 description = "Pay via STK Push",
-                iconRes = com.example.farmdirect.R.drawable.ic_seed, // TODO: Add M-Pesa icon
+                iconRes = com.example.farmdirect.R.drawable.mpesa_logo,
                 isSelected = true
             ),
             PaymentMethod(
                 id = "card",
                 name = "Card Payment",
                 description = "Visa, Mastercard",
-                iconRes = com.example.farmdirect.R.drawable.ic_seed // TODO: Add card icon
+                iconRes = com.example.farmdirect.R.drawable.visa_logo
             )
         )
         _uiState.value = _uiState.value.copy(paymentMethods = methods)
@@ -205,6 +217,88 @@ class CartViewModel : ViewModel() {
             it.copy(isSelected = it.id == methodId)
         }
         _uiState.value = _uiState.value.copy(paymentMethods = updatedMethods)
+    }
+    
+    fun updateDeliveryAddress(address: DeliveryAddress) {
+        val distance = DistanceCalculator.calculateDistance(
+            address.latitude,
+            address.longitude
+        )
+        val deliveryFee = DistanceCalculator.calculateDeliveryFee(distance)
+        val newTotal = _uiState.value.subtotal + deliveryFee
+        
+        _uiState.value = _uiState.value.copy(
+            deliveryAddress = address,
+            deliveryFee = deliveryFee,
+            total = newTotal,
+            showLocationDialog = false
+        )
+    }
+    
+    fun showCardPaymentDialog() {
+        _uiState.value = _uiState.value.copy(showCardPaymentDialog = true)
+    }
+    
+    fun dismissCardPaymentDialog() {
+        _uiState.value = _uiState.value.copy(showCardPaymentDialog = false)
+    }
+    
+    fun showLocationDialog() {
+        _uiState.value = _uiState.value.copy(showLocationDialog = true)
+    }
+    
+    fun dismissLocationDialog() {
+        _uiState.value = _uiState.value.copy(showLocationDialog = false)
+    }
+    
+    fun processCardPayment(
+        cardNumber: String,
+        expiryDate: String,
+        cvv: String,
+        cardholderName: String
+    ) {
+        viewModelScope.launch {
+            // Fake validation - accept any card details
+            val isValid = cardNumber.length >= 13 && 
+                         expiryDate.matches(Regex("\\d{2}/\\d{2}")) &&
+                         cvv.length >= 3 &&
+                         cardholderName.isNotBlank()
+            
+            if (!isValid) {
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = "Please enter valid card details",
+                    showCardPaymentDialog = true
+                )
+                return@launch
+            }
+            
+            // Process payment with fake card details
+            _uiState.value = _uiState.value.copy(
+                showCardPaymentDialog = false,
+                isLoading = true,
+                checkoutStatus = CheckoutStatus.PROCESSING,
+                checkoutMessage = "Processing card payment..."
+            )
+            
+            // Process the pending order
+            _pendingOrderId?.let { orderId ->
+                simulatePayment(
+                    orderId,
+                    _pendingOrderItems,
+                    _pendingOrderNumber,
+                    _pendingTotalAmount,
+                    _pendingCartIds,
+                    isCardPayment = true
+                )
+            }
+            
+            // Clear pending order
+            _pendingOrderId = null
+            _pendingOrderItems = emptyList()
+            _pendingOrderNumber = ""
+            _pendingTotalAmount = 0.0
+            _pendingCartIds = emptyList()
+        }
     }
     
     fun addToCart(productId: String, quantity: Int = 1) {
@@ -437,11 +531,28 @@ class CartViewModel : ViewModel() {
                 database.reference.child("orders").child(userId).child(orderId).child("farmerIds").setValue(farmerIds.toList())
                 database.reference.child("orders").child(userId).child(orderId).child("fulfillments").setValue(fulfillmentEntries)
                 
-                _uiState.value = _uiState.value.copy(
-                    showPaymentPrompt = true,
-                    paymentPromptMessage = "A push STK has been sent to your phone. Please wait two minutes before trying again in case of delay."
-                )
-                simulatePayment(orderId, currentItems, orderNumber, totalAmount, cartIds)
+                val selectedPaymentMethod = _uiState.value.paymentMethods.firstOrNull { it.isSelected }
+                
+                if (selectedPaymentMethod?.id == "card") {
+                    // For card payment, show card payment dialog
+                    _uiState.value = _uiState.value.copy(
+                        showCardPaymentDialog = true,
+                        isLoading = false
+                    )
+                    // Store order info for processing after card validation
+                    _pendingOrderId = orderId
+                    _pendingOrderItems = currentItems
+                    _pendingOrderNumber = orderNumber
+                    _pendingTotalAmount = totalAmount
+                    _pendingCartIds = cartIds
+                } else {
+                    // M-Pesa flow
+                    _uiState.value = _uiState.value.copy(
+                        showPaymentPrompt = true,
+                        paymentPromptMessage = "A push STK has been sent to your phone. Please wait two minutes before trying again in case of delay."
+                    )
+                    simulatePayment(orderId, currentItems, orderNumber, totalAmount, cartIds)
+                }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     errorMessage = e.message ?: "Failed to checkout"
@@ -472,7 +583,8 @@ class CartViewModel : ViewModel() {
         items: List<CartItem>,
         orderNumber: String,
         totalAmount: Double,
-        cartIds: List<String>
+        cartIds: List<String>,
+        isCardPayment: Boolean = false
     ) {
         viewModelScope.launch {
             try {
@@ -483,15 +595,20 @@ class CartViewModel : ViewModel() {
                 val userId = currentUserId() ?: return@launch
                 val orderRef = firestore.collection("orders").document(orderId)
                 val batch = firestore.batch()
+                val paymentRef = if (isCardPayment) {
+                    "CARD-${System.currentTimeMillis()}"
+                } else {
+                    "PESAPAL-${System.currentTimeMillis()}"
+                }
                 batch.update(orderRef, mapOf(
                     "paymentStatus" to "PAID",
-                    "paymentReference" to "PESAPAL-${System.currentTimeMillis()}",
+                    "paymentReference" to paymentRef,
                     "paymentCapturedAt" to Timestamp.now()
                 ))
                 
                 // Update Realtime Database with payment status
                 database.reference.child("orders").child(userId).child(orderId).child("paymentStatus").setValue("PAID")
-                database.reference.child("orders").child(userId).child(orderId).child("paymentReference").setValue("PESAPAL-${System.currentTimeMillis()}")
+                database.reference.child("orders").child(userId).child(orderId).child("paymentReference").setValue(paymentRef)
                 database.reference.child("orders").child(userId).child(orderId).child("status").setValue("PENDING") // Keep as PENDING until delivered
                 
                 items.forEach { item ->

@@ -17,6 +17,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -26,6 +27,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.farmdirect.R
+import kotlinx.coroutines.launch
 
 @Composable
 fun ProductDetailsScreen(
@@ -42,6 +44,8 @@ fun ProductDetailsScreen(
     var isWishlisted by remember { mutableStateOf(isInWishlist) }
     val isOutOfStock = product.stock <= 0
     val unitLabel = product.unit.ifBlank { "unit" }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
     
     Column(
         modifier = Modifier
@@ -418,7 +422,16 @@ fun ProductDetailsScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Button(
-                        onClick = { onAddToCart(product.id, quantity) },
+                        onClick = {
+                            onAddToCart(product.id, quantity)
+                            // Show success message
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar(
+                                    message = "${product.name} added to cart (${quantity} $unitLabel)",
+                                    duration = SnackbarDuration.Short
+                                )
+                            }
+                        },
                         enabled = !isOutOfStock && quantity > 0,
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(
@@ -474,6 +487,12 @@ fun ProductDetailsScreen(
                 )
             }
         }
+        
+        // Snackbar for feedback
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.padding(16.dp)
+        )
     }
 }
 

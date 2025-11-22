@@ -236,7 +236,7 @@ fun OverviewMetricsGrid(
                 title = "Total Users",
                 value = uiState.totalUsers.toString(),
                 growth = "+12%",
-                iconRes = R.drawable.ic_seed,
+                iconRes = R.drawable.icons_admin,
                 modifier = Modifier.weight(1f),
                 onClick = { onMetricClick("users") }
             )
@@ -244,7 +244,7 @@ fun OverviewMetricsGrid(
                 title = "Total Orders",
                 value = uiState.totalOrders.toString(),
                 growth = "+8%",
-                iconRes = R.drawable.ic_seed,
+                iconRes = R.drawable.icons_admin,
                 modifier = Modifier.weight(1f),
                 onClick = { onMetricClick("orders") }
             )
@@ -257,7 +257,7 @@ fun OverviewMetricsGrid(
                 title = "Revenue",
                 value = uiState.revenue,
                 growth = "+15%",
-                iconRes = R.drawable.ic_seed,
+                iconRes = R.drawable.icons_admin,
                 modifier = Modifier.weight(1f),
                 onClick = { onMetricClick("revenue") }
             )
@@ -265,7 +265,7 @@ fun OverviewMetricsGrid(
                 title = "Active Farmers",
                 value = uiState.activeFarmers.toString(),
                 growth = "+5%",
-                iconRes = R.drawable.ic_seed,
+                iconRes = R.drawable.icons_admin,
                 modifier = Modifier.weight(1f),
                 onClick = { onMetricClick("farmers") }
             )
@@ -347,8 +347,9 @@ fun MetricChartDialog(
                         "users" -> "Total Users Trend"
                         "orders" -> "Total Orders Trend"
                         "revenue" -> "Revenue Trend"
-                        "farmers" -> "Active Farmers Trend"
-                        else -> "Chart"
+                    "farmers" -> "Active Farmers Trend"
+                    "daily" -> "Daily Activity"
+                    else -> "Chart"
                     },
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF2E7D32)
@@ -370,18 +371,14 @@ fun MetricChartDialog(
                     .height(350.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Simple bar chart
-                val rawDataPoints = when (chartType) {
-                    "users" -> listOf(2500.0, 2600.0, 2700.0, uiState.totalUsers.toDouble())
-                    "orders" -> listOf(1000.0, 1100.0, 1200.0, uiState.totalOrders.toDouble())
-                    "revenue" -> listOf(40.0, 42.0, 45.0, uiState.revenue.replace("Ksh ", "").replace("K", "").toDoubleOrNull() ?: 47.2)
-                    "farmers" -> listOf(150.0, 165.0, 175.0, uiState.activeFarmers.toDouble())
-                    else -> emptyList<Double>()
-                }
-                
-                val labels = listOf("Week 1", "Week 2", "Week 3", "Current")
-                val dataWithLabels = rawDataPoints.mapIndexed { index, value ->
-                    Pair(labels[index], value)
+                // Use real data from Firebase
+                val dataWithLabels = when (chartType) {
+                    "users" -> uiState.usersHistory
+                    "orders" -> uiState.ordersHistory
+                    "revenue" -> uiState.revenueHistory
+                    "farmers" -> uiState.farmersHistory
+                    "daily" -> uiState.dailyActivity
+                    else -> emptyList()
                 }
                 
                 val dataPoints = if (sortOrder) {
@@ -391,7 +388,7 @@ fun MetricChartDialog(
                 }
                 
                 if (dataPoints.isNotEmpty()) {
-                    val maxValue = dataPoints.maxOfOrNull { it.second } ?: 1.0
+                    val maxValue = dataPoints.maxOfOrNull { it.second }?.coerceAtLeast(1.0) ?: 1.0
                     
                     // Chart area
                     Column(
@@ -406,8 +403,12 @@ fun MetricChartDialog(
                         ) {
                             Text("0", fontSize = 10.sp, color = Color.Gray)
                             Text(
-                                if (chartType == "revenue") "Ksh ${String.format("%.1fK", maxValue)}"
-                                else maxValue.toInt().toString(),
+                                if (chartType == "revenue") {
+                                    if (maxValue >= 1000) "Ksh ${String.format("%.1fK", maxValue / 1000)}"
+                                    else "Ksh ${String.format("%.0f", maxValue)}"
+                                } else {
+                                    maxValue.toInt().toString()
+                                },
                                 fontSize = 10.sp,
                                 color = Color.Gray
                             )
@@ -464,7 +465,8 @@ fun MetricChartDialog(
                                 )
                                 Text(
                                     text = if (chartType == "revenue") {
-                                        "Ksh ${String.format("%.1fK", value)}"
+                                        if (value >= 1000) "Ksh ${String.format("%.1fK", value / 1000)}"
+                                        else "Ksh ${String.format("%.0f", value)}"
                                     } else {
                                         value.toInt().toString()
                                     },
@@ -618,7 +620,7 @@ fun AdminBottomNavigationBar(
                     modifier = Modifier
                         .size(24.dp)
                         .background(
-                            color = if (selectedItem == "Analytics") Color(0xFFFFB300) else Color.Transparent,
+                            color = if (selectedItem == "Analytics") Color(0xFF4CAF50) else Color.Transparent,
                             shape = RoundedCornerShape(4.dp)
                         ),
                     contentAlignment = Alignment.Center
@@ -635,8 +637,8 @@ fun AdminBottomNavigationBar(
             selected = selectedItem == "Analytics",
             onClick = { onItemSelected("Analytics") },
             colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = Color(0xFFFFB300),
-                selectedTextColor = Color(0xFFFFB300),
+                selectedIconColor = Color(0xFF4CAF50),
+                selectedTextColor = Color(0xFF4CAF50),
                 unselectedIconColor = Color.Gray,
                 unselectedTextColor = Color.Gray
             )

@@ -62,7 +62,7 @@ fun OrdersScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.Start,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
@@ -71,23 +71,6 @@ fun OrdersScreen(
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF2E7D32)
                 )
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.clickable { /* TODO: Show filter dialog */ }
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = "Filter",
-                        tint = Color.Gray,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Text(
-                        text = "Filter",
-                        fontSize = 14.sp,
-                        color = Color.Gray
-                    )
-                }
             }
         }
         

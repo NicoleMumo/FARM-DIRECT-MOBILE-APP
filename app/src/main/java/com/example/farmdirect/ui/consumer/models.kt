@@ -82,7 +82,9 @@ data class DeliveryAddress(
     val id: String,
     val label: String,
     val location: String,
-    val details: String
+    val details: String,
+    val latitude: Double = -1.2921, // Default to Nairobi center
+    val longitude: Double = 36.8219
 )
 
 data class ProfileMenuItem(

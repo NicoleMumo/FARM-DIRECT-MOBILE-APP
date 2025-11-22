@@ -249,7 +249,7 @@ fun FarmerChartDialog(
                 }
                 
                 if (dataPoints.isNotEmpty()) {
-                    val maxValue = dataPoints.maxOfOrNull { it.second } ?: 1.0
+                    val maxValue = dataPoints.maxOfOrNull { it.second }?.coerceAtLeast(1.0) ?: 1.0
                     
                     // Chart area
                     Column(
@@ -264,8 +264,12 @@ fun FarmerChartDialog(
                         ) {
                             Text("0", fontSize = 10.sp, color = Color.Gray)
                             Text(
-                                if (chartType == "sales") "Ksh ${String.format("%.0f", maxValue)}"
-                                else maxValue.toInt().toString(),
+                                if (chartType == "sales") {
+                                    if (maxValue >= 1000) "Ksh ${String.format("%.1fK", maxValue / 1000)}"
+                                    else "Ksh ${String.format("%.0f", maxValue)}"
+                                } else {
+                                    maxValue.toInt().toString()
+                                },
                                 fontSize = 10.sp,
                                 color = Color.Gray
                             )
@@ -284,22 +288,53 @@ fun FarmerChartDialog(
                             dataPoints.forEach { (label, value) ->
                                 Column(
                                     horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Bottom,
                                     modifier = Modifier.weight(1f)
                                 ) {
                                     val barHeight = ((value / maxValue) * 180).dp.coerceAtLeast(8.dp)
+                                    val barColor = when {
+                                        value == dataPoints.maxOfOrNull { it.second } -> Color(0xFFFFB300) // Yellow for highest
+                                        value >= maxValue * 0.7 -> Color(0xFFFFC107) // Lighter yellow
+                                        else -> Color(0xFF4CAF50) // Green
+                                    }
                                     Box(
                                         modifier = Modifier
-                                            .width(40.dp)
+                                            .width(50.dp)
                                             .height(barHeight)
-                                            .background(Color(0xFFFFB300), RoundedCornerShape(4.dp))
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = label,
-                                        fontSize = 10.sp,
-                                        color = Color.Gray
+                                            .background(barColor, RoundedCornerShape(4.dp))
                                     )
                                 }
+                            }
+                        }
+                    }
+                    
+                    // X-axis labels and values on same line
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        dataPoints.forEach { (label, value) ->
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(
+                                    text = label,
+                                    fontSize = 11.sp,
+                                    color = Color.Gray,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    text = if (chartType == "sales") {
+                                        if (value >= 1000) "Ksh ${String.format("%.1fK", value / 1000)}"
+                                        else "Ksh ${String.format("%.0f", value)}"
+                                    } else {
+                                        value.toInt().toString()
+                                    },
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF2E7D32)
+                                )
                             }
                         }
                     }
@@ -325,41 +360,30 @@ fun FarmerHeader(title: String, onUpClick: (() -> Unit)? = null) {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.Start,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                if (onUpClick != null) {
-                    IconButton(onClick = onUpClick) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.White
-                        )
-                    }
-                } else {
-                    Image(
-                        painter = painterResource(id = R.drawable.ic_seed),
-                        contentDescription = "Logo",
-                        modifier = Modifier.size(48.dp)
+            if (onUpClick != null) {
+                IconButton(onClick = onUpClick) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color.White
                     )
                 }
-                Text(
-                    text = title,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
+            } else {
+                Image(
+                    painter = painterResource(id = R.drawable.ic_seed),
+                    contentDescription = "Logo",
+                    modifier = Modifier.size(48.dp)
                 )
             }
-
-            Icon(
-                imageVector = Icons.Default.Person,
-                contentDescription = "Profile",
-                tint = Color.White,
-                modifier = Modifier.size(24.dp)
+            Text(
+                text = title,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                modifier = Modifier.padding(start = if (onUpClick == null) 8.dp else 0.dp)
             )
         }
     }
@@ -676,7 +700,12 @@ fun FarmerBottomNavigationBar(
                     )
                 }
             },
-            label = { Text("Analytics") },
+            label = { 
+                Text(
+                    "Analytics",
+                    color = if (selectedItem == "Analytics") Color(0xFFFFC107) else Color.White
+                )
+            },
             selected = selectedItem == "Analytics",
             onClick = { onItemSelected("Analytics") },
             colors = NavigationBarItemDefaults.colors(

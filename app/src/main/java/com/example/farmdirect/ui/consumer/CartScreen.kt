@@ -21,9 +21,16 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.font.FontStyle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.farmdirect.R
 import com.example.farmdirect.ui.consumer.CheckoutStatus
+import com.example.farmdirect.utils.DistanceCalculator
 
 @Composable
 fun CartRoute(
@@ -36,9 +43,13 @@ fun CartRoute(
         onQuantityChange = viewModel::updateQuantity,
         onRemoveItem = viewModel::removeItem,
         onPaymentMethodSelected = viewModel::selectPaymentMethod,
-        onChangeAddress = { /* TODO: Navigate to address selection */ },
+        onChangeAddress = viewModel::showLocationDialog,
         onCheckout = viewModel::checkout,
-        onDismissPaymentPrompt = viewModel::dismissPaymentPrompt
+        onDismissPaymentPrompt = viewModel::dismissPaymentPrompt,
+        onUpdateDeliveryAddress = viewModel::updateDeliveryAddress,
+        onDismissLocationDialog = viewModel::dismissLocationDialog,
+        onProcessCardPayment = viewModel::processCardPayment,
+        onDismissCardPaymentDialog = viewModel::dismissCardPaymentDialog
     )
 }
 
@@ -50,7 +61,11 @@ fun CartScreen(
     onPaymentMethodSelected: (String) -> Unit,
     onChangeAddress: () -> Unit,
     onCheckout: () -> Unit,
-    onDismissPaymentPrompt: () -> Unit
+    onDismissPaymentPrompt: () -> Unit,
+    onUpdateDeliveryAddress: (DeliveryAddress) -> Unit,
+    onDismissLocationDialog: () -> Unit,
+    onProcessCardPayment: (String, String, String, String) -> Unit,
+    onDismissCardPaymentDialog: () -> Unit
 ) {
     Box(
         modifier = Modifier
@@ -226,6 +241,23 @@ fun CartScreen(
             }
         }
         }
+    }
+    
+    // Card Payment Dialog
+    if (uiState.showCardPaymentDialog) {
+        CardPaymentDialog(
+            onDismiss = onDismissCardPaymentDialog,
+            onProcessPayment = onProcessCardPayment
+        )
+    }
+    
+    // Location Input Dialog
+    if (uiState.showLocationDialog) {
+        LocationInputDialog(
+            currentAddress = uiState.deliveryAddress,
+            onDismiss = onDismissLocationDialog,
+            onConfirm = onUpdateDeliveryAddress
+        )
     }
     
     if (uiState.showPaymentPrompt) {
@@ -448,16 +480,15 @@ fun PaymentMethodCard(
                 modifier = Modifier
                     .size(48.dp)
                     .background(
-                        color = if (method.isSelected) Color(0xFF4CAF50) else Color(0xFFE6F8EB),
+                        color = Color.White,
                         shape = RoundedCornerShape(8.dp)
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
+                Image(
                     painter = painterResource(id = method.iconRes),
                     contentDescription = method.name,
-                    tint = if (method.isSelected) Color.White else Color(0xFF4CAF50),
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(40.dp)
                 )
             }
             
@@ -552,5 +583,227 @@ fun DeliveryAddressCard(
             }
         }
     }
+}
+
+@Composable
+fun CardPaymentDialog(
+    onDismiss: () -> Unit,
+    onProcessPayment: (String, String, String, String) -> Unit
+) {
+    var cardNumber by remember { mutableStateOf("") }
+    var expiryDate by remember { mutableStateOf("") }
+    var cvv by remember { mutableStateOf("") }
+    var cardholderName by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Card Payment",
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF2E7D32)
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                errorMessage?.let {
+                    Text(
+                        text = it,
+                        color = Color.Red,
+                        fontSize = 12.sp
+                    )
+                }
+                
+                OutlinedTextField(
+                    value = cardNumber,
+                    onValueChange = { 
+                        // Format card number (add spaces every 4 digits)
+                        val cleaned = it.filter { it.isDigit() }
+                        cardNumber = cleaned.chunked(4).joinToString(" ").take(19)
+                    },
+                    label = { Text("Card Number") },
+                    placeholder = { Text("1234 5678 9012 3456") },
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true
+                )
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = expiryDate,
+                        onValueChange = { 
+                            // Format expiry date (MM/YY)
+                            val cleaned = it.filter { it.isDigit() }
+                            expiryDate = when {
+                                cleaned.length <= 2 -> cleaned
+                                else -> "${cleaned.take(2)}/${cleaned.drop(2).take(2)}"
+                            }
+                        },
+                        label = { Text("Expiry") },
+                        placeholder = { Text("MM/YY") },
+                        modifier = Modifier.weight(1f),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true
+                    )
+                    
+                    OutlinedTextField(
+                        value = cvv,
+                        onValueChange = { 
+                            cvv = it.filter { it.isDigit() }.take(4)
+                        },
+                        label = { Text("CVV") },
+                        placeholder = { Text("123") },
+                        modifier = Modifier.weight(1f),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true
+                    )
+                }
+                
+                OutlinedTextField(
+                    value = cardholderName,
+                    onValueChange = { cardholderName = it },
+                    label = { Text("Cardholder Name") },
+                    placeholder = { Text("John Doe") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                
+                Text(
+                    text = "Note: This is a test payment. Any card details will be accepted.",
+                    fontSize = 11.sp,
+                    color = Color.Gray,
+                    fontStyle = FontStyle.Italic
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (cardNumber.length < 13) {
+                        errorMessage = "Please enter a valid card number"
+                    } else if (!expiryDate.matches(Regex("\\d{2}/\\d{2}"))) {
+                        errorMessage = "Please enter expiry date in MM/YY format"
+                    } else if (cvv.length < 3) {
+                        errorMessage = "Please enter a valid CVV"
+                    } else if (cardholderName.isBlank()) {
+                        errorMessage = "Please enter cardholder name"
+                    } else {
+                        errorMessage = null
+                        onProcessPayment(cardNumber, expiryDate, cvv, cardholderName)
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF4CAF50)
+                )
+            ) {
+                Text("Pay Now", color = Color.White)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+fun LocationInputDialog(
+    currentAddress: DeliveryAddress,
+    onDismiss: () -> Unit,
+    onConfirm: (DeliveryAddress) -> Unit
+) {
+    var locationName by remember { mutableStateOf(currentAddress.location) }
+    var details by remember { mutableStateOf(currentAddress.details) }
+    var label by remember { mutableStateOf(currentAddress.label) }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Delivery Location",
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF2E7D32)
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "Enter your delivery location to calculate delivery fee",
+                    fontSize = 12.sp,
+                    color = Color.Gray
+                )
+                
+                OutlinedTextField(
+                    value = label,
+                    onValueChange = { label = it },
+                    label = { Text("Address Label") },
+                    placeholder = { Text("Home, Office, etc.") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                
+                OutlinedTextField(
+                    value = locationName,
+                    onValueChange = { locationName = it },
+                    label = { Text("Location") },
+                    placeholder = { Text("Kilimani, Westlands, Karen, etc.") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                
+                OutlinedTextField(
+                    value = details,
+                    onValueChange = { details = it },
+                    label = { Text("Details") },
+                    placeholder = { Text("Building, Street, Apartment") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                
+                Text(
+                    text = "Delivery fee will be calculated automatically based on distance from our warehouse.",
+                    fontSize = 11.sp,
+                    color = Color.Gray,
+                    fontStyle = FontStyle.Italic
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val coordinates = DistanceCalculator.getCoordinatesForLocation(locationName)
+                    val newAddress = currentAddress.copy(
+                        label = label,
+                        location = locationName,
+                        details = details,
+                        latitude = coordinates.first,
+                        longitude = coordinates.second
+                    )
+                    onConfirm(newAddress)
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF4CAF50)
+                )
+            ) {
+                Text("Confirm", color = Color.White)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 

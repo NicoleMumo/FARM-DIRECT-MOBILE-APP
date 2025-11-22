@@ -166,25 +166,23 @@ class FarmerDashboardViewModel : ViewModel() {
         val now = calendar.timeInMillis
         val weeks = mutableListOf<Pair<String, Double>>()
         
-        for (i in 3 downTo 0) {
-            val weekStart = now - (i * 7 * 24 * 60 * 60 * 1000L)
-            val weekEnd = weekStart + (7 * 24 * 60 * 60 * 1000L)
-            
-            val weekSales = deliveredOrders
-                .filter { it.createdAt >= weekStart && it.createdAt < weekEnd }
-                .sumOf { it.price * it.quantityValue }
-            
-            weeks.add(Pair("Week ${4 - i}", weekSales))
-        }
+        // We're in Week 1 - show all sales in Week 1, Weeks 2-4 show 0
+        val week1Start = 0L // Start from beginning of time
+        val week1End = now
         
-        return weeks.ifEmpty {
-            listOf(
-                Pair("Week 1", 0.0),
-                Pair("Week 2", 0.0),
-                Pair("Week 3", 0.0),
-                Pair("Week 4", 0.0)
-            )
-        }
+        // Week 1: All sales from start until now
+        val week1Sales = deliveredOrders
+            .filter { it.createdAt >= week1Start && it.createdAt <= week1End }
+            .sumOf { it.price * it.quantityValue }
+        
+        weeks.add(Pair("Week 1", week1Sales))
+        
+        // Weeks 2-4: Empty (0) since we're still in Week 1
+        weeks.add(Pair("Week 2", 0.0))
+        weeks.add(Pair("Week 3", 0.0))
+        weeks.add(Pair("Week 4", 0.0))
+        
+        return weeks
     }
     
     private fun calculatePendingHistory(allOrders: List<FarmerOrder>): List<Pair<String, Double>> {
@@ -192,28 +190,24 @@ class FarmerDashboardViewModel : ViewModel() {
         val now = calendar.timeInMillis
         val weeks = mutableListOf<Pair<String, Double>>()
         
-        for (i in 3 downTo 0) {
-            val weekStart = now - (i * 7 * 24 * 60 * 60 * 1000L)
-            val weekEnd = weekStart + (7 * 24 * 60 * 60 * 1000L)
-            
-            val weekPending = allOrders
-                .filter { 
-                    it.status == FarmerOrderStatus.PENDING &&
-                    it.createdAt >= weekStart && it.createdAt < weekEnd
-                }
-                .size.toDouble()
-            
-            weeks.add(Pair("Week ${4 - i}", weekPending))
-        }
+        // We're in Week 1 - show all pending orders in Week 1, Weeks 2-4 show 0
+        val week1Start = 0L // Start from beginning of time
+        val week1End = now
         
-        return weeks.ifEmpty {
-            listOf(
-                Pair("Week 1", 0.0),
-                Pair("Week 2", 0.0),
-                Pair("Week 3", 0.0),
-                Pair("Week 4", 0.0)
-            )
-        }
+        // Week 1: All pending orders from start until now
+        val week1Pending = allOrders
+            .filter { it.status == FarmerOrderStatus.PENDING }
+            .filter { it.createdAt >= week1Start && it.createdAt <= week1End }
+            .size.toDouble()
+        
+        weeks.add(Pair("Week 1", week1Pending))
+        
+        // Weeks 2-4: Empty (0) since we're still in Week 1
+        weeks.add(Pair("Week 2", 0.0))
+        weeks.add(Pair("Week 3", 0.0))
+        weeks.add(Pair("Week 4", 0.0))
+        
+        return weeks
     }
 
     fun refresh() {
